@@ -1,0 +1,149 @@
+{
+  "appTitle": "Rental App",
+  "home": "Home",
+  "search": "Discover",
+  "addListing": "Add",
+  "rentals": "Rentals",
+  "profile": "Profile",
+  "settings": "Settings",
+  "darkMode": "Dark Mode",
+  "lightMode": "Light Mode",
+  "systemMode": "System Mode",
+  "language": "Language",
+  "english": "English",
+  "hindi": "Hindi",
+  "logout": "Logout",
+  "helpSupport": "Help & Support",
+  "myListings": "My Listings",
+  "myRentals": "My Rentals",
+  "favorites": "Favorites",
+  "paymentMethods": "Payment Methods",
+  "notifications": "Notifications",
+  "testNotification": "Test Notification",
+  "nearbyItems": "Nearby Items",
+  "categories": "Categories",
+  "electronics": "Electronics",
+  "vehicles": "Vehicles",
+  "sports": "Sports",
+  "tools": "Tools",
+  "furniture": "Furniture",
+  "clothing": "Clothing",
+  "noItemsFound": "No items found nearby",
+  "increaseRadiusHint": "Try increasing the search radius",
+  "enableLocationPrompt": "Enable location to see nearby items",
+  "enable": "Enable",
+  "showingItemsWithin": "Showing items within {distance} km",
+  "@showingItemsWithin": {
+    "placeholders": {
+      "distance": {
+        "type": "int"
+      }
+    }
+  },
+  "gettingLocation": "Getting your location...",
+  "rentNow": "Rent Now",
+  "searchRadius": "Search Radius",
+  "done": "Done",
+  "listItem": "List Item",
+  "verifyIdentity": "Verify Identity Now",
+  "current": "Current: {distance} km",
+  "@current": {
+    "placeholders": {
+      "distance": {
+        "type": "int"
+      }
+    }
+  },
+  "kycVerified": "Verified",
+  "kycPending": "KYC Verification Pending",
+  "adminDashboard": "Admin Dashboard",
+  "personalizeExperience": "Personalize your experience",
+  "personalizeSubtitle": "Update preferences, theme, and alerts seamlessly.",
+  "account": "Account",
+  "preferences": "Preferences",
+  "session": "Session",
+  "displayName": "Display Name",
+  "changePassword": "Change Password",
+  "setPassword": "Set Password",
+  "resetCredentials": "Reset sign-in credentials",
+  "createPassword": "Create a password for your account",
+  "reduceGlare": "Reduce glare for low-light use",
+  "themes": "Themes",
+  "alerts": "Alerts",
+  "signOutConfirmation": "Sign out?",
+  "signOutMessage": "You will need to sign in again to access your rentals.",
+  "cancel": "Cancel",
+  "confirmSignOut": "Sign out",
+  "guestWelcome": "Let’s personalize your experience",
+  "guestSubtitle": "Sign in to access your rentals, listings, support tickets and more.",
+  "signIn": "Sign In",
+  "dashboard": "Dashboard",
+  "manageListings": "Manage what you lend",
+  "trackRentals": "Track active bookings",
+  "quickAccess": "Quick access to saved items",
+  "walletsCards": "Wallets & cards",
+  "promotionsAlerts": "Promotions & alerts",
+  "faqsHistory": "FAQs and ticket history",
+  "identityVerified": "Identity verified",
+  "fullAccess": "You have full access to all features.",
+  "completeKyc": "Complete KYC to unlock listing & booking.",
+  "start": "Start",
+  "adminSubtitle": "Review reports, approve listings",
+  "memberSince": "Member since {year}",
+  "@memberSince": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "kycPendingStatus": "KYC Pending",
+  "goodToSeeYou": "Good to see you,",
+  "heyGreeting": "Hey {name}",
+  "@heyGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deliveringCurated": "Delivering curated rentals around you",
+  "enableLocationUnlock": "Enable location to unlock hyper-local results",
+  "searchPlaceholder": "Search cameras, cars, dresses, more...",
+  "goPremium": "Go Premium",
+  "locationOffMessage": "Location off. We are showing trending picks near you.",
+  "curatedInventoryMessage": "Showing curated inventory within {radius} km",
+  "@curatedInventoryMessage": {
+    "placeholders": {
+      "radius": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreCategories": "Explore by categories",
+  "clear": "Clear",
+  "filteringInventory": "Filtering {category} inventory",
+  "@filteringInventory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "trendingNearby": "Trending nearby",
+  "seeAll": "See all",
+  "recommendedForYou": "Recommended for you",
+  "pricePerDay": "₹{price}/day",
+  "messages": "Messages",
+  "book": "Book",
+  "errorLoadingInventory": "Unable to load inventory: {error}",
+  "@errorLoadingInventory": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "signInToManageFavorites": "Sign in to manage favorites",
+  "map": "Map"
+}
