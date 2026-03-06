@@ -15,6 +15,7 @@ class AuthScreen extends ConsumerStatefulWidget {
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _isLogin = true;
   bool _isLoading = false;
+  bool _obscurePassword = true;
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -30,7 +31,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Theme.of(context).primaryColor; // Should be the maroon color approx 0xFF781C2E
+    final primaryColor = Theme.of(
+      context,
+    ).primaryColor; // Should be the maroon color approx 0xFF781C2E
     // Hardcoding the maroon from the image if theme differs, but theme likely matches.
     // Based on previous code: Theme.of(context).colorScheme.primary is used.
     final maroonColor = const Color(0xFF781C2E);
@@ -73,37 +76,44 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               ],
                             ),
                             child: const Icon(
-                              Icons.shopping_bag_outlined, // Or look for specific shield/user icon if admin key, but sticking to shopping bag for Rental App
+                              Icons
+                                  .shopping_bag_outlined, // Or look for specific shield/user icon if admin key, but sticking to shopping bag for Rental App
                               size: 40,
                               color: Colors.white,
                             ),
-                          ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
-                          
+                          ).animate().scale(
+                            duration: 500.ms,
+                            curve: Curves.easeOutBack,
+                          ),
+
                           const SizedBox(height: 24),
-                          
+
                           // Title
                           Text(
                             'Rental App',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: const Color(0xFF1E1E2C), // Dark text like "Admin Portal"
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: const Color(
+                                    0xFF1E1E2C,
+                                  ), // Dark text like "Admin Portal"
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ).animate().fadeIn(delay: 200.ms),
-                          
+
                           const SizedBox(height: 8),
-                          
+
                           // Subtitle
                           Text(
-                            _isLogin 
-                              ? 'Welcome back! Please sign in to continue.'
-                              : 'Create an account to get started.',
+                            _isLogin
+                                ? 'Welcome back! Please sign in to continue.'
+                                : 'Create an account to get started.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 14,
                             ),
                           ).animate().fadeIn(delay: 300.ms),
-                          
+
                           const SizedBox(height: 32),
 
                           // Name Field (Sign Up only)
@@ -114,16 +124,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Full Name',
                                 filled: true,
-                                fillColor: const Color(0xFFF5F5F5), // Light grey fill
-                                prefixIcon: Icon(Icons.person_outline, color: Colors.grey[600]),
+                                fillColor: const Color(
+                                  0xFFF5F5F5,
+                                ), // Light grey fill
+                                prefixIcon: Icon(
+                                  Icons.person_outline,
+                                  color: Colors.grey[600],
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                               ),
                               validator: (value) {
-                                if (!_isLogin && (value == null || value.isEmpty)) {
+                                if (!_isLogin &&
+                                    (value == null || value.isEmpty)) {
                                   return 'Please enter your name';
                                 }
                                 return null;
@@ -140,42 +158,69 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               hintText: 'Email',
                               filled: true,
                               fillColor: const Color(0xFFF5F5F5),
-                              prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[600]),
+                              prefixIcon: Icon(
+                                Icons.email_outlined,
+                                color: Colors.grey[600],
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
                               ),
-                              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
                             ),
                             keyboardType: TextInputType.emailAddress,
                             validator: (value) {
-                              if (value == null || value.isEmpty) return 'Please enter your email';
-                              if (!value.contains('@')) return 'Please enter a valid email';
+                              if (value == null || value.isEmpty)
+                                return 'Please enter your email';
+                              if (!value.contains('@'))
+                                return 'Please enter a valid email';
                               return null;
                             },
                           ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
-                          
+
                           const SizedBox(height: 16),
 
                           // Password Field
                           TextFormField(
                             controller: _passwordController,
                             style: const TextStyle(color: Colors.black87),
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             decoration: InputDecoration(
                               hintText: 'Password',
                               filled: true,
                               fillColor: const Color(0xFFF5F5F5),
-                              prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[600]),
+                              prefixIcon: Icon(
+                                Icons.lock_outline,
+                                color: Colors.grey[600],
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.grey[600],
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
                               ),
-                              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) return 'Please enter your password';
-                              if (value.length < 6) return 'Password must be at least 6 characters';
+                              if (value == null || value.isEmpty)
+                                return 'Please enter your password';
+                              if (value.length < 6)
+                                return 'Password must be at least 6 characters';
                               return null;
                             },
                           ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
@@ -238,8 +283,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             width: double.infinity,
                             height: 52,
                             child: OutlinedButton.icon(
-                              onPressed: _isLoading ? null : _handleGoogleSignIn,
-                              icon: const Icon(Icons.g_mobiledata, size: 28), // Or custom G logo
+                              onPressed: _isLoading
+                                  ? null
+                                  : _handleGoogleSignIn,
+                              icon: const Icon(
+                                Icons.g_mobiledata,
+                                size: 28,
+                              ), // Or custom G logo
                               label: const Text('Continue with Google'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.black87,
@@ -255,9 +305,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Toggle Login/Signup (Outside card, white text on maroon bg)
                 TextButton(
                   onPressed: () {
@@ -270,7 +320,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ? "Don't have an account? Sign Up"
                         : 'Already have an account? Sign In',
                     style: const TextStyle(
-                      color: Colors.white, // White text on maroon specific background
+                      color: Colors
+                          .white, // White text on maroon specific background
                       fontWeight: FontWeight.w500,
                     ),
                   ),

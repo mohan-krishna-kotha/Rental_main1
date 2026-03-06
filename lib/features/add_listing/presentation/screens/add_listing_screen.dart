@@ -59,6 +59,19 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
     }
   }
 
+  // Risk calculation function
+  int calculateRisk(String title) {
+    int risk = 0;
+
+    if (title.length < 5) risk += 20;
+    if (title.toLowerCase().contains("test")) risk += 10;
+    // Add more risk factors as needed
+    if (title.toLowerCase().contains("fake")) risk += 30;
+    if (title.toLowerCase().contains("demo")) risk += 15;
+
+    return risk;
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -259,6 +272,23 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
 
     if (!_formKey.currentState!.validate()) return;
 
+    // ✅ Step 1: Add Title Validation
+    String title = _titleController.text.trim();
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Title cannot be empty")));
+      return;
+    }
+
+    if (title.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Title must be at least 3 characters")),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -303,17 +333,69 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       // Upload Images
       List<String> imageUrls = [];
       if (_selectedImages.isNotEmpty) {
-        final storageService = ref.read(storageServiceProvider);
-        imageUrls = await storageService.uploadImages(
-          _selectedImages,
-          'listing_images',
-        );
+        debugPrint('🖼️ Uploading ${_selectedImages.length} images...');
+        try {
+          final storageService = ref.read(storageServiceProvider);
+          imageUrls = await storageService.uploadImages(
+            _selectedImages,
+            'listing_images',
+          );
+          debugPrint('✅ Successfully uploaded ${imageUrls.length} images');
+          debugPrint('📸 Image URLs: $imageUrls');
+
+          // Verify all images were uploaded
+          if (imageUrls.length != _selectedImages.length) {
+            throw 'Only ${imageUrls.length} of ${_selectedImages.length} images were uploaded';
+          }
+
+          // Check if any URL is empty
+          if (imageUrls.any((url) => url.isEmpty)) {
+            throw 'Some image uploads failed - empty URLs returned';
+          }
+        } catch (uploadError) {
+          debugPrint('❌ Image upload failed: $uploadError');
+          if (!mounted) return;
+
+          // Show specific error to user
+          final shouldContinue = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Image Upload Failed'),
+              content: Text(
+                'Failed to upload images: $uploadError\n\nDo you want to continue without images?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Continue Without Images'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldContinue != true) {
+            setState(() => _isSubmitting = false);
+            return;
+          }
+
+          // Continue with empty images array
+          imageUrls = [];
+        }
+      } else {
+        debugPrint('ℹ️ No images selected for upload');
       }
+
+      // ✅ Step 2: Calculate Risk Score
+      int riskScore = calculateRisk(title);
 
       // Create product model
       final product = ProductModel(
         id: '', // Will be set by Firestore
-        title: _titleController.text.trim(),
+        title: title,
         description: _descriptionController.text.trim(),
         categoryId: _selectedCategory.toLowerCase(), // Simple ID generation
         categoryName: _selectedCategory,
@@ -345,7 +427,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
             ? _dimensionsController.text.trim()
             : null,
         isActive: true, // Default to true
-        riskScore: 0, // Initial risk score
+        riskScore: riskScore, // Risk score from calculation
         isFlagged: false,
         transactionMode:
             (_isForSale && salePrice != null && (pricePerDay == null))
@@ -354,8 +436,12 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       );
 
       // Save to Firestore
+      debugPrint(
+        '💾 Saving product with ${imageUrls.length} images to Firestore...',
+      );
       final firestoreService = ref.read(firestoreServiceProvider);
       await firestoreService.addProduct(product);
+      debugPrint('✅ Product saved successfully!');
       // await firestoreService.incrementItemsListed(currentUser.uid); // Method removed from service
 
       if (!mounted) return;

@@ -44,6 +44,7 @@ dependencies:
   google_maps_flutter: ^2.14.0
   geolocator: ^14.0.2
   image_picker: ^1.2.0
+  http: ^1.1.0
   flutter_animate: ^4.5.2
   rive: ^0.13.20
   flutter_dotenv: ^6.0.0

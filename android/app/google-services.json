@@ -1,40 +1,156 @@
 {
   "project_info": {
-    "project_number": "128131095535",
-    "project_id": "rental-admin-13d20",
-    "storage_bucket": "rental-admin-13d20.firebasestorage.app"
+    "project_number": "775134713875",
+    "project_id": "rental-b3324",
+    "storage_bucket": "rental-b3324.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:128131095535:android:6fbaebdffda23fa620f41a",
+        "mobilesdk_app_id": "1:775134713875:android:2cb7db3d26dfb122a947e6",
         "android_client_info": {
-          "package_name": "com.rental.b3324.rental_app"
+          "package_name": "com.example.flutter_application_1"
         }
       },
       "oauth_client": [
         {
-          "client_id": "128131095535-i4qf3oo20n2ck4ukhtqkf37c6oq1k9pl.apps.googleusercontent.com",
+          "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyAvNBsKznS-SpJQjlWB2UqJGgrfYFOwXWs"
+          "current_key": "AIzaSyAQtpQFqWLbE4aGRZi1S--NrpLYHBs13wc"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "128131095535-i4qf3oo20n2ck4ukhtqkf37c6oq1k9pl.apps.googleusercontent.com",
+              "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "128131095535-fbucd0fehleb50d24lsgu198bu2b8vln.apps.googleusercontent.com",
+              "client_id": "775134713875-j4ds6najrp7brnlhlg2m58cucd4j87dn.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.rentalApp"
+                "bundle_id": "com.rental.b3324.rentalApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:775134713875:android:4acf6e8cc4201160a947e6",
+        "android_client_info": {
+          "package_name": "com.example.rental_admin_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQtpQFqWLbE4aGRZi1S--NrpLYHBs13wc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "775134713875-j4ds6najrp7brnlhlg2m58cucd4j87dn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.rental.b3324.rentalApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:775134713875:android:5d1801b5b7e9db37a947e6",
+        "android_client_info": {
+          "package_name": "com.rental.b3324.rental_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "775134713875-djqpv7hu02gh849s0tua54qr8nidfqn6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rental.b3324.rental_app",
+            "certificate_hash": "cef15742bab5674006955ecf97f223ad162e1ad7"
+          }
+        },
+        {
+          "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQtpQFqWLbE4aGRZi1S--NrpLYHBs13wc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "775134713875-j4ds6najrp7brnlhlg2m58cucd4j87dn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.rental.b3324.rentalApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:775134713875:android:976cf4c124f64e35a947e6",
+        "android_client_info": {
+          "package_name": "com.rental.b3324.rentalapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQtpQFqWLbE4aGRZi1S--NrpLYHBs13wc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "775134713875-j4ds6najrp7brnlhlg2m58cucd4j87dn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.rental.b3324.rentalApp"
               }
             }
           ]
