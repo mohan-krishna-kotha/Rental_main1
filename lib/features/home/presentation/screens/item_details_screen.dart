@@ -133,16 +133,32 @@ class ItemDetailsScreen extends ConsumerWidget {
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(item.title),
                   background: Container(
-                    color: Colors.grey.shade900,
+                    color: Colors.transparent,
                     child: item.images.isNotEmpty
-                        ? Image.network(
-                            item.images.first,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(
-                                Icons.image,
-                                size: 100,
-                                color: Colors.white54,
+                        ? GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FullScreenImageViewer(
+                                    imageUrl: item.images.first,
+                                    tag: 'item_image_${item.id}',
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Hero(
+                              tag: 'item_image_${item.id}',
+                              child: Image.network(
+                                item.images.first,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(
+                                    Icons.image,
+                                    size: 100,
+                                    color: Colors.white54,
+                                  ),
+                                ),
                               ),
                             ),
                           )
@@ -372,8 +388,7 @@ class ItemDetailsScreen extends ConsumerWidget {
                                     MaterialPageRoute(
                                       builder: (_) => ChatScreen(
                                         chatId: chatId,
-                                        otherUserName: item
-                                            .ownerName, // Using item owner name directly
+                                        otherUserName: item.ownerName,
                                         itemName: item.title,
                                       ),
                                     ),
@@ -415,9 +430,7 @@ class ItemDetailsScreen extends ConsumerWidget {
                               if (isSellMode) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text(
-                                      'Buying feature coming soon!',
-                                    ),
+                                    content: Text('Buying feature coming soon!'),
                                   ),
                                 );
                               } else {
@@ -984,6 +997,52 @@ class ItemDetailsScreen extends ConsumerWidget {
               }
             },
             child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FullScreenImageViewer extends StatelessWidget {
+  final String imageUrl;
+  final String tag;
+
+  const FullScreenImageViewer({
+    super.key,
+    required this.imageUrl,
+    required this.tag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.1,
+              maxScale: 5.0,
+              child: Hero(
+                tag: tag,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 10,
+            child: CircleAvatar(
+              backgroundColor: Colors.black45,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
           ),
         ],
       ),

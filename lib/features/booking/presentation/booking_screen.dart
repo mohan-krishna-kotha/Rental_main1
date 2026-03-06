@@ -386,7 +386,6 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               height: 50,
               child: OutlinedButton.icon(
                 onPressed: () {
-                  // Pop all routes until the very first (Home) screen
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 },
                 icon: const Icon(Icons.home_outlined),

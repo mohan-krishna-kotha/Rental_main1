@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/models/product_model.dart'; // Updated import
@@ -811,91 +812,136 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final accent = _getCategoryColor(item.categoryName);
     final thumbnail = item.images.isNotEmpty ? item.images.first : null;
+    final postedDate = DateFormat('dd MMM yyyy').format(item.createdAt);
+    final city = item.location.city ?? 'Nearby';
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0x14781C2E)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: thumbnail != null
-                ? Image.network(
-                    thumbnail,
-                    width: 70,
-                    height: 70,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    width: 70,
-                    height: 70,
-                    color: accent.withOpacity(0.1),
-                    child: Icon(
-                      _getCategoryIcon(item.categoryName),
-                      color: accent,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ItemDetailsScreen(item: item),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0x14781C2E)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0x0A781C2E).withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Left: Image or Icon fallback
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: thumbnail != null
+                  ? Image.network(
+                      thumbnail,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _iconBox(accent, item.categoryName),
+                    )
+                  : _iconBox(accent, item.categoryName),
+            ),
+            const SizedBox(width: 16),
+
+            // Middle: Details (Title, Posted Date, Price, Location)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF2B1B1F),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
                     ),
                   ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFF2B1B1F),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.pricePerDay(item.rentalPricePerDay.toStringAsFixed(0)),
-                  style: TextStyle(color: accent, fontWeight: FontWeight.bold),
-                ),
-                if (distanceLabel != null) ...[
                   const SizedBox(height: 4),
+                  
+                  // Posted Date
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today_outlined, size: 11, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Posted $postedDate',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Price
                   Text(
-                    distanceLabel,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    l10n.pricePerDay(item.rentalPricePerDay.toStringAsFixed(0)),
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Location + Distance
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 12, color: Colors.grey),
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          distanceLabel != null ? '$city • $distanceLabel' : city,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
+              ),
+            ),
+
+            // Right: Favorite Button + Chevron
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildFavoriteButton(context, item, compact: true),
+                const SizedBox(height: 8),
+                const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _buildFavoriteButton(context, item, compact: true),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 36,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BookingScreen(item: item),
-                      ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(88, 36),
-                  ),
-                  child: Text(l10n.book),
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _iconBox(Color color, String category) {
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Icon(_getCategoryIcon(category), color: color, size: 32),
     );
   }
 

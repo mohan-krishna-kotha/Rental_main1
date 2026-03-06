@@ -174,7 +174,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         .inDays;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Checkout')),
+      appBar: AppBar(
+        title: const Text('Checkout'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            tooltip: 'Return to Home',
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+          ),
+        ],
+      ),
       body: FutureBuilder(
         future: ref
             .read(firestoreServiceProvider)
