@@ -29,18 +29,25 @@ class _SearchDashboardScreenState extends ConsumerState<SearchDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Determine the foreground color based on the current AppBar theme
+    // so text is visible in both light (bright) and dark themes.
+    final appBarForeground =
+        Theme.of(context).appBarTheme.foregroundColor ??
+        Theme.of(context).colorScheme.onSurface;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: TextField(
           controller: _searchController,
           autofocus: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Search items...',
             border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.white70),
+            hintStyle: TextStyle(color: appBarForeground.withOpacity(0.6)),
           ),
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: appBarForeground),
+          cursorColor: appBarForeground,
           onChanged: (value) {
             setState(() {
               _searchQuery = value;
