@@ -360,7 +360,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
             const SizedBox(height: 48),
 
-            // Button
+            // Confirm Booking Button
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -375,6 +375,29 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text('CONFIRM BOOKING'),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Cancel & Return to Home Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  // Pop all routes until the very first (Home) screen
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
+                icon: const Icon(Icons.home_outlined),
+                label: const Text('Cancel & Return to Home'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF781C2E),
+                  side: const BorderSide(color: Color(0xFF781C2E)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ),
           ],
