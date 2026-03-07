@@ -17,6 +17,7 @@ import 'core/services/notification_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'core/providers/locale_provider.dart';
+import 'core/providers/navigation_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -127,17 +128,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   }
 }
 
-class MainNavigator extends StatefulWidget {
+class MainNavigator extends ConsumerWidget {
   const MainNavigator({super.key});
 
-  @override
-  State<MainNavigator> createState() => _MainNavigatorState();
-}
-
-class _MainNavigatorState extends State<MainNavigator> {
-  int _selectedIndex = 0;
-
-  final List<Widget> _screens = [
+  static final List<Widget> _screens = [
     const HomeScreen(),
     const MapScreen(),
     const AddListingScreen(),
@@ -146,16 +140,16 @@ class _MainNavigatorState extends State<MainNavigator> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final selectedIndex = ref.watch(navigationIndexProvider);
+
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: IndexedStack(index: selectedIndex, children: _screens),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
+        selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+          ref.read(navigationIndexProvider.notifier).setIndex(index);
         },
         destinations: [
           NavigationDestination(

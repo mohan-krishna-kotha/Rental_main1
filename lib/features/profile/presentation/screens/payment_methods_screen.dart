@@ -68,9 +68,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add a card, UPI, or bank account\nfor faster checkout.',
+            'Add a UPI ID or bank account\nfor faster checkout.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: Color(0xFF555555)),
           ),
           const SizedBox(height: 32),
           ElevatedButton.icon(
@@ -316,27 +316,23 @@ class _PaymentMethodTile extends StatelessWidget {
 
   IconData _iconData(PaymentMethodType t) {
     switch (t) {
-      case PaymentMethodType.card:
-        return Icons.credit_card;
       case PaymentMethodType.upi:
         return Icons.qr_code_scanner;
       case PaymentMethodType.netbanking:
         return Icons.account_balance;
-      case PaymentMethodType.wallet:
-        return Icons.account_balance_wallet;
+      default:
+        return Icons.payment;
     }
   }
 
   Color _iconColor(PaymentMethodType t) {
     switch (t) {
-      case PaymentMethodType.card:
-        return Colors.blue;
       case PaymentMethodType.upi:
         return Colors.green;
       case PaymentMethodType.netbanking:
         return Colors.orange;
-      case PaymentMethodType.wallet:
-        return Colors.purple;
+      default:
+        return Colors.grey;
     }
   }
 }
@@ -355,17 +351,11 @@ class _AddPaymentMethodSheet extends StatefulWidget {
 }
 
 class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
-  PaymentMethodType _selectedType = PaymentMethodType.card;
+  PaymentMethodType _selectedType = PaymentMethodType.upi;
   bool _setAsDefault = false;
   bool _isSaving = false;
 
   static const _maroon = Color(0xFF781C2E);
-
-  // Card fields
-  final _cardNumberCtrl = TextEditingController();
-  final _expiryCtrl = TextEditingController();
-  final _cvvCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
 
   // UPI fields
   final _upiCtrl = TextEditingController();
@@ -381,42 +371,15 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
     'Kotak Bank', 'PNB', 'Bank of Baroda', 'Canara Bank', 'Other'
   ];
 
-  // Wallet fields
-  String _selectedWallet = 'Paytm Wallet';
-  final List<String> _wallets = [
-    'Paytm Wallet', 'Amazon Pay', 'Ola Money', 'Mobikwik', 'Freecharge'
-  ];
-
   @override
   void dispose() {
-    _cardNumberCtrl.dispose();
-    _expiryCtrl.dispose();
-    _cvvCtrl.dispose();
-    _nameCtrl.dispose();
     _upiCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     // Validation
-    if (_selectedType == PaymentMethodType.card) {
-      if (_cardNumberCtrl.text.replaceAll(' ', '').length < 16) {
-        _snack('Enter a valid 16-digit card number');
-        return;
-      }
-      if (_expiryCtrl.text.length < 5) {
-        _snack('Enter valid expiry (MM/YY)');
-        return;
-      }
-      if (_cvvCtrl.text.length < 3) {
-        _snack('Enter valid CVV');
-        return;
-      }
-      if (_nameCtrl.text.trim().isEmpty) {
-        _snack('Enter card holder name');
-        return;
-      }
-    } else if (_selectedType == PaymentMethodType.upi) {
+    if (_selectedType == PaymentMethodType.upi) {
       if (!_upiCtrl.text.contains('@')) {
         _snack('Enter a valid UPI ID (e.g. name@upi)');
         return;
@@ -431,39 +394,12 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
     setState(() => _isSaving = true);
 
     try {
-      // For cards: we only store last4 + brand (never full number)
-      String? last4;
-      String? brand;
-      if (_selectedType == PaymentMethodType.card) {
-        final digits = _cardNumberCtrl.text.replaceAll(' ', '');
-        last4 = digits.substring(digits.length - 4);
-        // Simple brand detection
-        if (digits.startsWith('4')) brand = 'Visa';
-        else if (digits.startsWith('5')) brand = 'Mastercard';
-        else if (digits.startsWith('6')) brand = 'Rupay';
-        else brand = 'Card';
-      }
-
       final method = PaymentMethodModel(
         userId: widget.userId,
         type: _selectedType,
-        cardLast4: last4,
-        cardBrand: brand,
-        cardExpiry: _selectedType == PaymentMethodType.card
-            ? _expiryCtrl.text
-            : null,
-        cardHolderName: _selectedType == PaymentMethodType.card
-            ? _nameCtrl.text.trim()
-            : null,
-        upiId:
-            _selectedType == PaymentMethodType.upi ? _upiCtrl.text.trim() : null,
+        upiId: _selectedType == PaymentMethodType.upi ? _upiCtrl.text.trim() : null,
         upiApp: _selectedType == PaymentMethodType.upi ? _selectedUpiApp : null,
-        bankName: _selectedType == PaymentMethodType.netbanking
-            ? _selectedBank
-            : null,
-        walletName: _selectedType == PaymentMethodType.wallet
-            ? _selectedWallet
-            : null,
+        bankName: _selectedType == PaymentMethodType.netbanking ? _selectedBank : null,
         isDefault: _setAsDefault,
       );
 
@@ -527,20 +463,20 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
 
               // Type selector tabs
               Row(
-                children: PaymentMethodType.values.map((type) {
+                children: [PaymentMethodType.upi, PaymentMethodType.netbanking].map((type) {
                   final isSelected = _selectedType == type;
                   return Expanded(
                     child: GestureDetector(
                       onTap: () => setState(() => _selectedType = type),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? _maroon.withOpacity(0.1)
                               : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected ? _maroon : Colors.transparent,
                           ),
@@ -549,12 +485,12 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
                           children: [
                             Icon(_typeIcon(type),
                                 color: isSelected ? _maroon : Colors.grey,
-                                size: 20),
-                            const SizedBox(height: 4),
+                                size: 22),
+                            const SizedBox(height: 6),
                             Text(
                               _typeLabel(type),
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 12,
                                 color: isSelected ? _maroon : Colors.grey,
                                 fontWeight: isSelected
                                     ? FontWeight.bold
@@ -588,7 +524,10 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
                     activeColor: _maroon,
                   ),
                   const SizedBox(width: 8),
-                  const Text('Set as default payment method'),
+                  const Text(
+                    'Set as default payment method',
+                    style: TextStyle(color: Colors.black87),
+                  ),
                 ],
               ),
 
@@ -626,14 +565,6 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
 
   Widget _buildForm() {
     switch (_selectedType) {
-      case PaymentMethodType.card:
-        return _CardForm(
-          key: const ValueKey('card'),
-          numberCtrl: _cardNumberCtrl,
-          expiryCtrl: _expiryCtrl,
-          cvvCtrl: _cvvCtrl,
-          nameCtrl: _nameCtrl,
-        );
       case PaymentMethodType.upi:
         return _UpiForm(
           key: const ValueKey('upi'),
@@ -649,39 +580,30 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
           banks: _banks,
           onBankChanged: (v) => setState(() => _selectedBank = v),
         );
-      case PaymentMethodType.wallet:
-        return _WalletForm(
-          key: const ValueKey('wallet'),
-          selectedWallet: _selectedWallet,
-          wallets: _wallets,
-          onWalletChanged: (v) => setState(() => _selectedWallet = v!),
-        );
+      default:
+        return const SizedBox.shrink();
     }
   }
 
   IconData _typeIcon(PaymentMethodType t) {
     switch (t) {
-      case PaymentMethodType.card:
-        return Icons.credit_card;
       case PaymentMethodType.upi:
         return Icons.qr_code_scanner;
       case PaymentMethodType.netbanking:
         return Icons.account_balance;
-      case PaymentMethodType.wallet:
-        return Icons.account_balance_wallet;
+      default:
+        return Icons.payment;
     }
   }
 
   String _typeLabel(PaymentMethodType t) {
     switch (t) {
-      case PaymentMethodType.card:
-        return 'Card';
       case PaymentMethodType.upi:
         return 'UPI';
       case PaymentMethodType.netbanking:
         return 'Bank';
-      case PaymentMethodType.wallet:
-        return 'Wallet';
+      default:
+        return '';
     }
   }
 }
@@ -689,93 +611,6 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
 // ─────────────────────────────────────────────────────────────
 // Sub-forms
 // ─────────────────────────────────────────────────────────────
-class _CardForm extends StatelessWidget {
-  final TextEditingController numberCtrl, expiryCtrl, cvvCtrl, nameCtrl;
-
-  const _CardForm({
-    super.key,
-    required this.numberCtrl,
-    required this.expiryCtrl,
-    required this.cvvCtrl,
-    required this.nameCtrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _label('Card Number'),
-        TextField(
-          controller: numberCtrl,
-          keyboardType: TextInputType.number,
-          inputFormatters: [
-            LengthLimitingTextInputFormatter(19),
-            _CardNumberFormatter(),
-          ],
-          decoration: _deco('0000 0000 0000 0000', Icons.credit_card),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('Expiry (MM/YY)'),
-                  TextField(
-                    controller: expiryCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      LengthLimitingTextInputFormatter(5),
-                      _ExpiryFormatter(),
-                    ],
-                    decoration: _deco('MM/YY', null),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('CVV'),
-                  TextField(
-                    controller: cvvCtrl,
-                    obscureText: true,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    decoration: _deco('•••', null).copyWith(counterText: ''),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _label('Card Holder Name'),
-        TextField(
-          controller: nameCtrl,
-          textCapitalization: TextCapitalization.words,
-          decoration: _deco('Full name on card', Icons.person_outline),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Icon(Icons.lock, size: 12, color: Colors.grey),
-            const SizedBox(width: 4),
-            const Text(
-              'Your full card number is never stored.',
-              style: TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class _UpiForm extends StatelessWidget {
   final TextEditingController upiCtrl;
   final String selectedApp;
@@ -798,17 +633,19 @@ class _UpiForm extends StatelessWidget {
         _label('UPI App'),
         DropdownButtonFormField<String>(
           value: selectedApp,
-          items: apps.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
+          items: apps.map((a) => DropdownMenuItem(
+            value: a,
+            child: Text(a, style: const TextStyle(color: Colors.black87)),
+          )).toList(),
           onChanged: onAppChanged,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          ),
+          decoration: _deco('Choose your UPI app', Icons.phone_android),
+          style: const TextStyle(color: Colors.black87, fontSize: 14),
         ),
         const SizedBox(height: 12),
         _label('UPI ID'),
         TextField(
           controller: upiCtrl,
+          style: const TextStyle(color: Colors.black87, fontSize: 14),
           decoration: _deco('example@upi', Icons.alternate_email),
         ),
         const SizedBox(height: 8),
@@ -853,57 +690,23 @@ class _NetbankingForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Select Your Bank'),
+        _label('Select Bank'),
         DropdownButtonFormField<String>(
           value: selectedBank,
-          hint: const Text('Choose a bank...'),
-          items: banks.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+          items:
+              banks
+                  .map(
+                    (b) => DropdownMenuItem(
+                      value: b,
+                      child: Text(
+                        b,
+                        style: const TextStyle(color: Colors.black87),
+                      ),
+                    ),
+                  )
+                  .toList(),
           onChanged: onBankChanged,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'You will be redirected to your bank\'s portal at payment time.',
-          style: TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-      ],
-    );
-  }
-}
-
-class _WalletForm extends StatelessWidget {
-  final String selectedWallet;
-  final List<String> wallets;
-  final ValueChanged<String?> onWalletChanged;
-
-  const _WalletForm({
-    super.key,
-    required this.selectedWallet,
-    required this.wallets,
-    required this.onWalletChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _label('Select Wallet'),
-        DropdownButtonFormField<String>(
-          value: selectedWallet,
-          items: wallets
-              .map((w) => DropdownMenuItem(value: w, child: Text(w)))
-              .toList(),
-          onChanged: onWalletChanged,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          ),
+          decoration: _deco('Choose your bank', Icons.account_balance),
         ),
       ],
     );
@@ -963,44 +766,22 @@ Widget _label(String text) => Padding(
 
 InputDecoration _deco(String hint, IconData? icon) => InputDecoration(
       hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
       prefixIcon:
           icon != null ? Icon(icon, size: 18, color: Colors.grey) : null,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade200)),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFF781C2E), width: 1.5)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       isDense: true,
+      filled: true,
+      fillColor: Colors.white,
     );
 
-// ─────────────────────────────────────────────────────────────
-// Input Formatters
-// ─────────────────────────────────────────────────────────────
-class _CardNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final buf = StringBuffer();
-    for (int i = 0; i < digits.length; i++) {
-      if (i > 0 && i % 4 == 0) buf.write(' ');
-      buf.write(digits[i]);
-    }
-    final s = buf.toString();
-    return newValue.copyWith(
-        text: s, selection: TextSelection.collapsed(offset: s.length));
-  }
-}
 
-class _ExpiryFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final buf = StringBuffer();
-    for (int i = 0; i < digits.length && i < 4; i++) {
-      if (i == 2) buf.write('/');
-      buf.write(digits[i]);
-    }
-    final s = buf.toString();
-    return newValue.copyWith(
-        text: s, selection: TextSelection.collapsed(offset: s.length));
-  }
-}

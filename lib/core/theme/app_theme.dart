@@ -113,6 +113,7 @@ class AppTheme {
         borderSide: const BorderSide(color: _primary, width: 2),
       ),
       labelStyle: GoogleFonts.manrope(color: _primary.withOpacity(0.6)),
+      hintStyle: GoogleFonts.manrope(color: Colors.grey.shade500),
       prefixIconColor: _primary,
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(

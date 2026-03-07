@@ -121,24 +121,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             TextFormField(
                               controller: _nameController,
                               style: const TextStyle(color: Colors.black87),
-                              decoration: InputDecoration(
-                                hintText: 'Full Name',
-                                filled: true,
-                                fillColor: const Color(
-                                  0xFFF5F5F5,
-                                ), // Light grey fill
-                                prefixIcon: Icon(
-                                  Icons.person_outline,
-                                  color: Colors.grey[600],
+                                decoration: InputDecoration(
+                                  hintText: 'Full Name',
+                                  hintStyle: TextStyle(color: Colors.grey[500]),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF5F5F5),
+                                  prefixIcon: Icon(
+                                    Icons.person_outline,
+                                    color: Colors.grey[600],
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
                                 ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
                               validator: (value) {
                                 if (!_isLogin &&
                                     (value == null || value.isEmpty)) {
@@ -156,6 +155,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             style: const TextStyle(color: Colors.black87),
                             decoration: InputDecoration(
                               hintText: 'Email',
+                              hintStyle: TextStyle(color: Colors.grey[500]),
                               filled: true,
                               fillColor: const Color(0xFFF5F5F5),
                               prefixIcon: Icon(
@@ -189,6 +189,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             obscureText: _obscurePassword,
                             decoration: InputDecoration(
                               hintText: 'Password',
+                              hintStyle: TextStyle(color: Colors.grey[500]),
                               filled: true,
                               fillColor: const Color(0xFFF5F5F5),
                               prefixIcon: Icon(

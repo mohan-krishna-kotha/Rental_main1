@@ -4,6 +4,7 @@ import '../models/product_model.dart';
 import '../services/firestore_service.dart';
 import 'location_provider.dart';
 import 'auth_provider.dart';
+import '../utils/search_utils.dart';
 
 // Firestore instance
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
@@ -113,6 +114,7 @@ final productsByCategoryProvider =
       );
     });
 
+
 // Search products provider (Client-side filtering for reliability and flexibility)
 final searchProductsProvider =
     Provider.family<AsyncValue<List<ProductModel>>, String>((ref, query) {
@@ -122,12 +124,9 @@ final searchProductsProvider =
         data: (products) {
           if (query.isEmpty) return const AsyncValue.data([]);
 
-          final lowerQuery = query.toLowerCase();
           final filtered = products.where((product) {
-            final title = product.title.toLowerCase();
-            // Check if title starts with OR contains (for robustness)
-            // We prioritize startsWith logic if we wanted, but 'contains' is better for users.
-            return title.contains(lowerQuery);
+            return SearchUtils.matches(product.title, query) || 
+                   SearchUtils.matches(product.categoryName, query);
           }).toList();
 
           return AsyncValue.data(filtered);

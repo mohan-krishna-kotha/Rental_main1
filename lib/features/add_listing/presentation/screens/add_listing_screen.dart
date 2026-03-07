@@ -16,6 +16,7 @@ import '../../../../core/providers/storage_provider.dart';
 // KYC imports
 import '../../../kyc/helpers/kyc_enforcement.dart';
 import '../../../profile/presentation/screens/kyc_screen.dart';
+import '../../../../core/providers/navigation_provider.dart';
 
 // ... other imports
 
@@ -469,6 +470,16 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
         _isForSale = false;
         _selectedImages.clear();
       });
+
+      // Redirect logic:
+      // 1. If this screen was pushed onto the Navigator (e.g. from a FAB), pop it.
+      // 2. Regardless, switch the global navigation tab back to Home (index 0).
+      if (mounted) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        ref.read(navigationIndexProvider.notifier).setIndex(0);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
