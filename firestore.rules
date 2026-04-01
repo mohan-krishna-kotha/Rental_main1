@@ -190,5 +190,11 @@ service cloud.firestore {
         allow update: if isLoggedIn();
       }
     }
+    /* Subscription Verifications */
+    match /subscription_verifications/{docId} {
+      allow create: if isLoggedIn();
+      allow read, update: if isAdmin() || (isLoggedIn() && resource.data.userId == request.auth.uid);
+      allow list: if isAdmin();
+    }
   }
 }

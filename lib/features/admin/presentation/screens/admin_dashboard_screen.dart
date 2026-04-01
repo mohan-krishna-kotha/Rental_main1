@@ -10,6 +10,7 @@ import 'admin_flagged_items_screen.dart';
 import 'admin_products_screen.dart';
 import 'admin_orders_screen.dart';
 import 'admin_rental_requests_screen.dart';
+import 'admin_subscription_verifications_screen.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -74,6 +75,13 @@ class AdminDashboardScreen extends ConsumerWidget {
                 Icons.shopping_bag_outlined,
                 Colors.blueAccent,
                 () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminOrdersScreen())),
+              ),
+              _buildAdminTile(
+                context,
+                'Subscription Verifications',
+                Icons.verified_outlined,
+                Colors.teal,
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminSubscriptionVerificationsScreen())),
               ),
               _buildAdminTile(
                 context,

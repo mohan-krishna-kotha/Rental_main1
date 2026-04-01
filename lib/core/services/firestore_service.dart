@@ -1377,4 +1377,124 @@ class FirestoreService {
 
     await ticketRef.set(ticket.toFirestore());
   }
+
+  /* ---------------- SUBSCRIPTION VERIFICATION (Admin Review) ----------- */
+
+  /// User submits payment proof after scanning QR code
+  Future<String> submitSubscriptionVerification({
+    required String userId,
+    required String userEmail,
+    required String name,
+    required String utrId,
+    required double amount,
+    required String tierId,
+    required String tierName,
+    required String billingCycle,
+    String? screenshotUrl,
+  }) async {
+    final docRef =
+        _firestore.collection('subscription_verifications').doc();
+    await docRef.set({
+      'id': docRef.id,
+      'userId': userId,
+      'userEmail': userEmail,
+      'name': name,
+      'utrId': utrId,
+      'amount': amount,
+      'tierId': tierId,
+      'tierName': tierName,
+      'billingCycle': billingCycle,
+      'screenshotUrl': screenshotUrl,
+      'status': 'pending',
+      'adminComment': null,
+      'submittedAt': FieldValue.serverTimestamp(),
+      'reviewedAt': null,
+    });
+    return docRef.id;
+  }
+
+  /// Update the screenshot URL for a verification doc
+  Future<void> updateSubscriptionVerificationUrl({
+    required String docId,
+    required String screenshotUrl,
+  }) async {
+    await _firestore
+        .collection('subscription_verifications')
+        .doc(docId)
+        .update({
+      'screenshotUrl': screenshotUrl,
+    });
+  }
+
+  /// Admin: stream all verification requests
+  Stream<List<Map<String, dynamic>>> streamSubscriptionVerifications() {
+    return _firestore
+        .collection('subscription_verifications')
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+      list.sort((a, b) {
+        if (a['status'] == 'pending' && b['status'] != 'pending') return -1;
+        if (a['status'] != 'pending' && b['status'] == 'pending') return 1;
+        return 0;
+      });
+      return list;
+    });
+  }
+
+  /// Admin: approve — activates subscription
+  Future<void> approveSubscriptionVerification({
+    required String docId,
+    required String userId,
+    required String tierId,
+    required double amount,
+    required DateTime expiry,
+  }) async {
+    final batch = _firestore.batch();
+
+    batch.update(
+      _firestore.collection('subscription_verifications').doc(docId),
+      {'status': 'approved', 'reviewedAt': FieldValue.serverTimestamp()},
+    );
+
+    batch.update(_firestore.collection('users').doc(userId), {
+      'subscriptionTier': tierId,
+      'subscriptionStatus': 'active',
+      'subscriptionExpiry': Timestamp.fromDate(expiry),
+    });
+
+    batch.set(
+      _firestore.collection('subscriptions').doc(userId),
+      {
+        'subscriptionTier': tierId,
+        'subscriptionStatus': 'active',
+        'subscriptionExpiry': Timestamp.fromDate(expiry),
+        'userId': userId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
+  }
+
+  /// Admin: reject — marks rejected with a reason
+  Future<void> rejectSubscriptionVerification({
+    required String docId,
+    required String userId,
+    required String reason,
+  }) async {
+    await _firestore
+        .collection('subscription_verifications')
+        .doc(docId)
+        .update({
+      'status': 'rejected',
+      'adminComment': reason,
+      'reviewedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }
