@@ -41,7 +41,6 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
 
   String _selectedCategory = 'Electronics';
   String _selectedPeriod = 'Day';
-  bool _isForSale = false;
   bool _isSubmitting = false;
 
   final ImagePicker _picker = ImagePicker();
@@ -306,7 +305,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       double? pricePerMonth;
       double? salePrice;
 
-      if (_isForSale && _salePriceController.text.isNotEmpty) {
+      if (_salePriceController.text.isNotEmpty) {
         salePrice = double.parse(_salePriceController.text);
       }
 
@@ -430,10 +429,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
         isActive: true, // Default to true
         riskScore: riskScore, // Risk score from calculation
         isFlagged: false,
-        transactionMode:
-            (_isForSale && salePrice != null && (pricePerDay == null))
-            ? 'sell'
-            : 'rent', // Heuristic: if sale only, sell. Else rent (default).
+        transactionMode: 'rent', // Always defaults to rent
       );
 
       // Save to Firestore
@@ -467,7 +463,6 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       setState(() {
         _selectedCategory = 'Electronics';
         _selectedPeriod = 'Day';
-        _isForSale = false;
         _selectedImages.clear();
       });
 
@@ -756,25 +751,6 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                     ).animate().fadeIn(delay: 500.ms).slideX(begin: -0.2),
                     const SizedBox(height: 16),
 
-                    // For Sale Toggle
-                    SwitchListTile(
-                      title: const Text('Available for Sale'),
-                      subtitle: const Text(
-                        'Enable if you want to sell this item',
-                      ),
-                      value: _isForSale,
-                      onChanged: (value) {
-                        setState(() {
-                          _isForSale = value;
-                        });
-                      },
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Theme.of(context).dividerColor),
-                      ),
-                    ).animate().fadeIn(delay: 600.ms).slideX(begin: -0.2),
-                    const SizedBox(height: 16),
-
                     // Original Price (Reference)
                     TextFormField(
                       controller: _originalPriceController,
@@ -790,9 +766,8 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                     ).animate().fadeIn(delay: 650.ms).slideX(begin: -0.2),
                     const SizedBox(height: 16),
 
-                    // Rental Price & Security Deposit (Hidden in Sale Mode)
-                    if (!_isForSale) ...[
-                      Row(
+                    // Rental Price & Security Deposit
+                    Row(
                         children: [
                           Expanded(
                             flex: 2,
@@ -856,12 +831,10 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                         keyboardType: TextInputType.number,
                       ).animate().fadeIn(delay: 800.ms).slideX(begin: -0.2),
                       const SizedBox(height: 16),
-                    ],
 
-                    // Sale Price Field (Conditional - below Security Deposit)
-                    if (_isForSale) ...[
-                      TextFormField(
-                        controller: _salePriceController,
+                    // Sale Price Field
+                    TextFormField(
+                      controller: _salePriceController,
                         decoration: InputDecoration(
                           labelText: 'Sale Price',
                           prefixIcon: const Icon(Icons.monetization_on),
@@ -870,15 +843,8 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                           ),
                         ),
                         keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (_isForSale && (value == null || value.isEmpty)) {
-                            return 'Please enter sale price';
-                          }
-                          return null;
-                        },
-                      ).animate().fadeIn(delay: 750.ms).slideX(begin: -0.2),
-                      const SizedBox(height: 16),
-                    ],
+                    ).animate().fadeIn(delay: 750.ms).slideX(begin: -0.2),
+                    const SizedBox(height: 16),
                     const SizedBox(height: 32),
 
                     // Submit Button
