@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/providers/items_provider.dart'; // For firestoreServiceProvider
+import '../../../../core/services/notification_service.dart';
+import '../../../../core/utils/booking_policy.dart';
 import '../providers/order_provider.dart';
+import '../../../../core/models/booking_request_model.dart';
 import '../../../../core/models/order_models.dart'; // Use new comprehensive order models
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/models/review_model.dart';
@@ -27,6 +29,9 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _processRentalStatusTransitions();
+    });
   }
 
   @override
@@ -38,6 +43,7 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
   @override
   Widget build(BuildContext context) {
     final ordersAsync = ref.watch(userOrdersProvider);
+    final bookingRequestsAsync = ref.watch(userBookingRequestsProvider);
 
     return Scaffold(
       body: NestedScrollView(
@@ -62,18 +68,68 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, stack) => Center(child: Text('Error: $err')),
           data: (orders) {
-            return TabBarView(
-              controller: _tabController,
-              children: [
-                _buildRentalsList(orders, 'Active'),
-                _buildRentalsList(orders, 'Pending'),
-                _buildRentalsList(orders, 'Completed'),
-              ],
+            return bookingRequestsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error: $err')),
+              data: (requests) {
+                return TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildRentalsList(orders, 'Active'),
+                    _buildPendingCombinedList(orders, requests),
+                    _buildRentalsList(orders, 'Completed'),
+                  ],
+                );
+              },
             );
           },
         ),
       ),
     );
+  }
+
+  Widget _buildPendingCombinedList(
+    List<OrderModel> allOrders,
+    List<BookingRequestModel> allRequests,
+  ) {
+    final pendingOrders = allOrders
+        .where((o) => o.orderStatus.toLowerCase() == 'pending')
+        .toList();
+    final pendingRequests = allRequests
+        .where((r) => r.status.toLowerCase() == 'pending')
+        .toList();
+
+    if (pendingOrders.isEmpty && pendingRequests.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_outlined, size: 80, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'No Pending rentals',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: Colors.grey),
+            ),
+          ],
+        ).animate().fadeIn().scale(),
+      );
+    }
+
+    final widgets = <Widget>[];
+
+    for (var i = 0; i < pendingOrders.length; i++) {
+      widgets.add(_buildRentalCard(pendingOrders[i], i));
+    }
+
+    for (var i = 0; i < pendingRequests.length; i++) {
+      widgets.add(
+        _buildPendingRequestCard(pendingRequests[i], pendingOrders.length + i),
+      );
+    }
+
+    return ListView(padding: const EdgeInsets.all(16), children: widgets);
   }
 
   Widget _buildRentalsList(List<OrderModel> allOrders, String tabCategory) {
@@ -161,11 +217,15 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
         String title =
             'Order ${order.orderNumber.isNotEmpty ? order.orderNumber : order.id.substring(0, 4)}';
         String? imageUrl;
+        DateTime? rentalStart;
+        DateTime? rentalEnd;
 
         if (snapshot.hasData && snapshot.data != null) {
           final data = snapshot.data!;
           if (data['name'] != null) title = data['name'];
           if (data['image'] != null) imageUrl = data['image'];
+          rentalStart = data['rentalStart'] as DateTime?;
+          rentalEnd = data['rentalEnd'] as DateTime?;
         }
 
         return _buildCardUI(
@@ -173,6 +233,8 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
           order,
           title,
           imageUrl,
+          rentalStart,
+          rentalEnd,
           color,
           icon,
           index,
@@ -202,7 +264,12 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
         // Ignore product fetch error, just use item name
       }
 
-      return {'name': firstItem.productName, 'image': imageUrl};
+      return {
+        'name': firstItem.productName,
+        'image': imageUrl,
+        'rentalStart': firstItem.rentalStartDate,
+        'rentalEnd': firstItem.rentalEndDate,
+      };
     } catch (e) {
       return {};
     }
@@ -213,18 +280,20 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
     OrderModel order,
     String itemTitle,
     String? itemImage,
+    DateTime? rentalStart,
+    DateTime? rentalEnd,
     Color color,
     IconData icon,
     int index,
   ) {
-    // Display dates from Summary or N/A
-    // TODO: Get rental dates from order items subcollection
-    final start = order.createdAt; // Placeholder - use order creation date
-    final end = order.createdAt.add(
-      Duration(days: 7),
-    ); // Placeholder - 7 days from creation
+    final start = rentalStart ?? order.createdAt;
+    final end = rentalEnd ?? order.createdAt.add(const Duration(days: 7));
     final dateStr =
         '${DateFormat("dd MMM").format(start)} - ${DateFormat("dd MMM").format(end)}';
+    final canCancelPending = BookingPolicy.canCancelPendingRental(
+      orderStatus: order.orderStatus,
+      rentalStart: start,
+    );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -264,7 +333,7 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                        color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(icon, color: color, size: 30),
@@ -324,7 +393,9 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () => _confirmCancel(context, order),
+                    onPressed: canCancelPending
+                        ? () => _confirmCancel(context, order)
+                        : null,
                     icon: const Icon(Icons.cancel_outlined),
                     label: const Text('Cancel Order'),
                     style: OutlinedButton.styleFrom(
@@ -333,6 +404,14 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
                     ),
                   ),
                 ),
+                if (!canCancelPending)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Rental already started. Cancellation is no longer available.',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ),
               ],
             ],
           ),
@@ -342,6 +421,7 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
   }
 
   Future<void> _confirmCancel(BuildContext context, OrderModel order) async {
+    final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -367,23 +447,218 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
 
     if (confirmed == true) {
       try {
-        await FirebaseFirestore.instance
-            .collection('orders') // Changed from rentals
-            .doc(order.id)
-            .update({'orderStatus': 'cancelled'});
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) throw 'Please sign in again';
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order cancelled successfully.')),
-          );
-        }
+        await ref
+            .read(firestoreServiceProvider)
+            .cancelPendingRentalIfNotStarted(
+              orderId: order.id,
+              userId: currentUser.uid,
+            );
+
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Order cancelled successfully.')),
+        );
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to cancel: $e')));
-        }
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text('Failed to cancel: $e')));
       }
+    }
+  }
+
+  Widget _buildPendingRequestCard(BookingRequestModel request, int index) {
+    final start = request.startDate;
+    final end = request.endDate;
+    final now = DateTime.now();
+    final isStartReached = !start.isAfter(now);
+    final canCancel = BookingPolicy.canCancelPendingRequest(
+      requestStart: start,
+    );
+    final dateStr =
+        '${DateFormat("dd MMM").format(start)} - ${DateFormat("dd MMM").format(end)}';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.pending,
+                    color: Colors.orange,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        request.productName,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        dateStr,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Pending request (waiting for owner/admin approval)',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  'Rs ${request.totalPrice.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    color: Color(0xFF781C2E),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: canCancel
+                    ? () => _confirmCancelRequest(context, request)
+                    : null,
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Cancel Request'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                ),
+              ),
+            ),
+            if (!canCancel)
+              Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  isStartReached
+                      ? 'Start date has reached. This request still needs approval before it can become active.'
+                      : 'This request is still waiting for approval before it can become active.',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(delay: (100 * index).ms).slideX(begin: -0.2);
+  }
+
+  Future<void> _confirmCancelRequest(
+    BuildContext context,
+    BookingRequestModel request,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel Request?'),
+        content: const Text(
+          'Are you sure you want to cancel this rental request?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Yes, Cancel',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref
+          .read(firestoreServiceProvider)
+          .cancelBookingRequestByUser(request.id);
+
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Request cancelled successfully.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Failed to cancel request: $e')),
+      );
+    }
+  }
+
+  Future<void> _processRentalStatusTransitions() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      final startedOrders = await ref
+          .read(firestoreServiceProvider)
+          .activateStartedPendingRentals(currentUser.uid);
+
+      final completedOrders = await ref
+          .read(firestoreServiceProvider)
+          .completeEndedActiveRentals(currentUser.uid);
+
+      if (!mounted || (startedOrders.isEmpty && completedOrders.isEmpty))
+        return;
+
+      final messages = <String>[];
+
+      if (startedOrders.isNotEmpty) {
+        messages.add(
+          startedOrders.length == 1
+              ? 'Rental ${startedOrders.first} has started.'
+              : '${startedOrders.length} rentals have started.',
+        );
+      }
+
+      if (completedOrders.isNotEmpty) {
+        messages.add(
+          completedOrders.length == 1
+              ? 'Rental ${completedOrders.first} has been completed.'
+              : '${completedOrders.length} rentals have been completed.',
+        );
+      }
+
+      NotificationService().showInAppNotification(
+        'Rental Updates',
+        messages.join(' '),
+      );
+    } catch (e) {
+      debugPrint('Failed to process rental status transitions: $e');
     }
   }
 
@@ -397,6 +672,7 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
       builder: (context) => ReviewDialog(
         targetName: itemName,
         onSubmit: (rating, comment) async {
+          final messenger = ScaffoldMessenger.of(context);
           final user = FirebaseAuth.instance.currentUser;
           if (user == null) return;
 
@@ -432,17 +708,15 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
                 .read(firestoreServiceProvider)
                 .addProductReview(productId, review);
 
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Review submitted successfully!')),
-              );
-            }
+            if (!mounted) return;
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Review submitted successfully!')),
+            );
           } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to submit review: $e')),
-              );
-            }
+            if (!mounted) return;
+            messenger.showSnackBar(
+              SnackBar(content: Text('Failed to submit review: $e')),
+            );
           }
         },
       ),
@@ -453,9 +727,9 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         status.toUpperCase(),

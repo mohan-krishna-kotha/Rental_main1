@@ -94,6 +94,14 @@
           }
         },
         {
+          "client_id": "775134713875-do597jv1q0bgp9c7pqe48tma82gq4te9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rental.b3324.rental_app",
+            "certificate_hash": "9e0ebf59ef578a1644aaec59a10bb1f8b251925f"
+          }
+        },
+        {
           "client_id": "775134713875-md8colfl1veq1pu06eak8lbvsh2uhpfa.apps.googleusercontent.com",
           "client_type": 3
         }

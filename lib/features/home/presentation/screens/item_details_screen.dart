@@ -5,12 +5,12 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../booking/presentation/booking_screen.dart';
+import '../../../booking/presentation/buy_checkout_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/models/review_model.dart';
 import '../../../../core/services/firestore_service.dart';
 import '../../../../core/providers/items_provider.dart'; // Correct import for firestoreServiceProvider
-import '../../../../core/providers/chat_provider.dart';
-import '../../../chat/presentation/screens/chat_screen.dart';
+import '../../../../core/providers/favorites_provider.dart';
 
 class ItemDetailsScreen extends ConsumerWidget {
   final ProductModel item;
@@ -83,6 +83,29 @@ class ItemDetailsScreen extends ConsumerWidget {
     );
   }
 
+  void _handleBuyAction(BuildContext context, ProductModel item) {
+    final salePrice = item.transactionMode == 'sell' ? item.salePrice : null;
+    if (salePrice == null || salePrice <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This item is not available for sale')),
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please login to continue')));
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => BuyCheckoutScreen(item: item)),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final firestoreService = ref.watch(firestoreServiceProvider);
@@ -101,20 +124,22 @@ class ItemDetailsScreen extends ConsumerWidget {
         }
 
         final currency = '₹';
-        final isSellMode = item.transactionMode == 'sell';
-
-        // Dynamic Price Logic
-        String displayedPrice;
-        if (isSellMode) {
-          displayedPrice = item.salePrice != null
-              ? '$currency${item.salePrice}'
-              : 'Not for Sale';
-        } else {
-          displayedPrice = '$currency${item.rentalPricePerDay} / day';
-        }
+        final hasRentOffer = item.rentalPricePerDay > 0;
+        final saleOfferPrice = item.transactionMode == 'sell'
+            ? item.salePrice
+            : null;
+        final hasSaleOffer = saleOfferPrice != null && saleOfferPrice > 0;
+        final rentPriceText =
+            '$currency${item.rentalPricePerDay.toStringAsFixed(0)} / day';
+        final salePriceText = hasSaleOffer
+            ? '$currency${saleOfferPrice.toStringAsFixed(0)}'
+            : 'Not available for sale';
 
         final currentUser = FirebaseAuth.instance.currentUser;
         final isOwner = currentUser?.uid == item.ownerId;
+        final favorites = ref.watch(userFavoritesProvider).value ?? [];
+        final isFavorite = favorites.contains(item.id);
+        const headerColor = Colors.white;
 
         return Scaffold(
           body: CustomScrollView(
@@ -122,7 +147,35 @@ class ItemDetailsScreen extends ConsumerWidget {
               SliverAppBar.large(
                 expandedHeight: 300,
                 pinned: true,
+                foregroundColor: headerColor,
+                iconTheme: IconThemeData(color: headerColor),
+                actionsIconTheme: IconThemeData(color: headerColor),
                 actions: [
+                  if (!isOwner)
+                    IconButton(
+                      icon: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? Colors.red : headerColor,
+                      ),
+                      tooltip: isFavorite
+                          ? 'Remove from favorites'
+                          : 'Add to favorites',
+                      onPressed: () async {
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please login to manage favorites'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        await ref
+                            .read(firestoreServiceProvider)
+                            .toggleFavorite(user.uid, item.id);
+                      },
+                    ),
                   if (isOwner)
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
@@ -131,7 +184,19 @@ class ItemDetailsScreen extends ConsumerWidget {
                     ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
-                  title: Text(item.title),
+                  title: Text(
+                    item.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black87,
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
                   background: Container(
                     color: Colors.transparent,
                     child: item.images.isNotEmpty
@@ -149,16 +214,33 @@ class ItemDetailsScreen extends ConsumerWidget {
                             },
                             child: Hero(
                               tag: 'item_image_${item.id}',
-                              child: Image.network(
-                                item.images.first,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(
-                                  child: Icon(
-                                    Icons.image,
-                                    size: 100,
-                                    color: Colors.white54,
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.network(
+                                    item.images.first,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Center(
+                                      child: Icon(
+                                        Icons.image,
+                                        size: 100,
+                                        color: Colors.white54,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.center,
+                                        colors: [
+                                          Color(0xAA000000),
+                                          Color(0x00000000),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           )
@@ -227,13 +309,28 @@ class ItemDetailsScreen extends ConsumerWidget {
                             ),
                           ),
                           const Spacer(),
-                          Text(
-                            displayedPrice,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (hasRentOffer)
+                                Text(
+                                  rentPriceText,
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
                                 ),
+                              if (hasSaleOffer)
+                                Text(
+                                  'Buy $salePriceText',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                ),
+                            ],
                           ),
                         ],
                       ).animate().fadeIn().slideX(),
@@ -250,8 +347,7 @@ class ItemDetailsScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 24),
 
-                      // Conditional Details based on Mode
-                      if (!isSellMode) ...[
+                      if (hasRentOffer) ...[
                         _buildDetailRow(
                           context,
                           'Security Deposit',
@@ -273,13 +369,13 @@ class ItemDetailsScreen extends ConsumerWidget {
                               ? '$currency${item.rentalPricePerMonth}'
                               : '-',
                         ),
-                      ] else ...[
-                        // Sale specific details if any
-                        _buildDetailRow(
-                          context,
-                          'Condition',
-                          'Used',
-                        ), // Placeholder/Inferred
+                      ],
+
+                      if (hasSaleOffer) ...[
+                        const SizedBox(height: 12),
+                        _buildDetailRow(context, 'Sale Price', salePriceText),
+                        const SizedBox(height: 12),
+                        _buildDetailRow(context, 'Condition', 'Used'),
                       ],
 
                       const SizedBox(height: 12),
@@ -359,103 +455,102 @@ class ItemDetailsScreen extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: FirebaseAuth.instance.currentUser != null && !isOwner
-                  ? Row(
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              final user = FirebaseAuth.instance.currentUser;
-                              if (user == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Please login to chat'),
-                                  ),
-                                );
-                                return;
-                              }
-
-                              try {
-                                final chatId = await ref
-                                    .read(chatServiceProvider)
-                                    .createOrGetChat(
-                                      itemId: item.id,
-                                      ownerId: item.ownerId,
-                                    );
-
-                                if (context.mounted) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ChatScreen(
-                                        chatId: chatId,
-                                        otherUserName: item.ownerName,
-                                        itemName: item.title,
+                        if (hasRentOffer)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () =>
+                                  _handleAction(context, ref, item),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                backgroundColor: const Color(0xFF781C2E),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'RENT NOW',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (hasRentOffer && hasSaleOffer)
+                          const SizedBox(height: 12),
+                        if (hasSaleOffer)
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _handleBuyAction(context, item),
+                              icon: const Icon(Icons.shopping_bag_outlined),
+                              label: Text('BUY NOW • $salePriceText'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                backgroundColor: Colors.orange.shade50,
+                                foregroundColor: Colors.orange.shade800,
+                                side: BorderSide(color: Colors.orange.shade700),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (!hasSaleOffer)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.block_outlined,
+                                  color: Colors.grey.shade500,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Not available for sale',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade700,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Failed to start chat: $e'),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.chat_bubble_outline),
-                            label: const Text('Chat'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              side: BorderSide(
-                                color: isSellMode
-                                    ? Colors.orange
-                                    : const Color(0xFF781C2E),
-                              ),
-                              foregroundColor: isSellMode
-                                  ? Colors.orange
-                                  : const Color(0xFF781C2E),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              if (isSellMode) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Buying feature coming soon!'),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'This item can only be rented right now.',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                );
-                              } else {
-                                _handleAction(context, ref, item);
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: isSellMode
-                                  ? Colors.orange
-                                  : const Color(0xFF781C2E),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              isSellMode ? 'BUY NOW' : 'RENT NOW',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
                       ],
                     )
                   : ElevatedButton(
@@ -471,18 +566,14 @@ class ItemDetailsScreen extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: isOwner
                             ? Colors.blueGrey.shade800
-                            : (isSellMode
-                                  ? Colors.orange
-                                  : const Color(0xFF781C2E)),
+                            : const Color(0xFF781C2E),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       child: Text(
-                        isOwner
-                            ? 'MANAGE ITEM'
-                            : (isSellMode ? 'BUY NOW' : 'RENT NOW'),
+                        isOwner ? 'MANAGE ITEM' : 'RENT NOW',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -497,8 +588,10 @@ class ItemDetailsScreen extends ConsumerWidget {
   }
 
   void _showOwnerManageDialog(BuildContext context, ProductModel initialItem) {
+    final parentContext = context;
+
     showModalBottomSheet(
-      context: context,
+      context: parentContext,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -508,19 +601,17 @@ class ItemDetailsScreen extends ConsumerWidget {
           FirebaseFirestore.instance,
           FirebaseAuth.instance,
         );
-        
+
         return StreamBuilder<ProductModel?>(
           stream: firestoreService.getProductStream(initialItem.id),
           initialData: initialItem,
-          builder: (context, snapshot) {
+          builder: (_, snapshot) {
             final item = snapshot.data ?? initialItem;
-            // Handle case where item might be null (deleted)
-            if (item == null) return const SizedBox();
 
             bool isSellMode = item.transactionMode == 'sell';
-            
+
             return StatefulBuilder(
-              builder: (context, setState) {
+              builder: (_, setState) {
                 return Container(
                   padding: const EdgeInsets.all(24),
                   child: SingleChildScrollView(
@@ -543,7 +634,9 @@ class ItemDetailsScreen extends ConsumerWidget {
                         const SizedBox(height: 24),
 
                         SwitchListTile(
-                          title: Text(isSellMode ? 'Selling Mode' : 'Renting Mode'),
+                          title: Text(
+                            isSellMode ? 'Selling Mode' : 'Renting Mode',
+                          ),
                           subtitle: Text(
                             isSellMode
                                 ? 'Item is available for purchase only.'
@@ -551,39 +644,42 @@ class ItemDetailsScreen extends ConsumerWidget {
                           ),
                           value: isSellMode,
                           activeThumbColor: Colors.orange,
-                          secondary: Icon(isSellMode ? Icons.sell : Icons.timer),
+                          secondary: Icon(
+                            isSellMode ? Icons.sell : Icons.timer,
+                          ),
                           onChanged: (value) async {
-                            final newMode = value ? 'sell' : 'rent';
-
                             // Case 1: Switching to SALE
                             if (value) {
                               // Check if sale price exists
-                              if (item.salePrice != null && item.salePrice! > 0) {
+                              if (item.salePrice != null &&
+                                  item.salePrice! > 0) {
                                 // Fast switch
-                                 await _updateItemMode(
-                                  context, // Use outer context
+                                await _updateItemMode(
+                                  parentContext,
                                   item.id,
                                   'sell',
                                   isSale: true,
                                 );
                                 return;
                               }
-                              
+
                               // No sale price, ask for it
-                              Navigator.pop(context); 
-                              
-                              if (context.mounted) {
-                                _showSetPriceDialog(context, 'Sale Price', (
-                                  price,
-                                ) async {
-                                  await _updateItemMode(
-                                    context,
-                                    item.id,
-                                    'sell',
-                                    price: price,
-                                    isSale: true,
-                                  );
-                                });
+                              Navigator.pop(sheetContext);
+
+                              if (parentContext.mounted) {
+                                _showSetPriceDialog(
+                                  parentContext,
+                                  'Sale Price',
+                                  (price) async {
+                                    await _updateItemMode(
+                                      parentContext,
+                                      item.id,
+                                      'sell',
+                                      price: price,
+                                      isSale: true,
+                                    );
+                                  },
+                                );
                               }
                               return;
                             }
@@ -592,9 +688,9 @@ class ItemDetailsScreen extends ConsumerWidget {
                             if (!value) {
                               // Check if rental price exists
                               if (item.rentalPricePerDay > 0) {
-                                 // Fast switch
-                                 await _updateItemMode(
-                                  context, 
+                                // Fast switch
+                                await _updateItemMode(
+                                  parentContext,
                                   item.id,
                                   'rent',
                                   isSale: false,
@@ -603,14 +699,14 @@ class ItemDetailsScreen extends ConsumerWidget {
                               }
 
                               // No rental price, ask for it
-                              Navigator.pop(context);
-                              if (context.mounted) {
-                                _showSetRentalDetailsDialog(context, (
+                              Navigator.pop(sheetContext);
+                              if (parentContext.mounted) {
+                                _showSetRentalDetailsDialog(parentContext, (
                                   price,
                                   deposit,
                                 ) async {
                                   await _updateItemMode(
-                                    context,
+                                    parentContext,
                                     item.id,
                                     'rent',
                                     price: price,
@@ -638,22 +734,34 @@ class ItemDetailsScreen extends ConsumerWidget {
                             try {
                               if (isArchived) {
                                 await firestoreService.archiveProduct(item.id);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Item archived')),
+                                if (parentContext.mounted) {
+                                  ScaffoldMessenger.of(
+                                    parentContext,
+                                  ).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Item archived'),
+                                    ),
                                   );
                                 }
                               } else {
-                                await firestoreService.unarchiveProduct(item.id);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Item unarchived')),
+                                await firestoreService.unarchiveProduct(
+                                  item.id,
+                                );
+                                if (parentContext.mounted) {
+                                  ScaffoldMessenger.of(
+                                    parentContext,
+                                  ).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Item unarchived'),
+                                    ),
                                   );
                                 }
                               }
                             } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                              if (parentContext.mounted) {
+                                ScaffoldMessenger.of(
+                                  parentContext,
+                                ).showSnackBar(
                                   SnackBar(content: Text('Error: $e')),
                                 );
                               }
@@ -670,7 +778,7 @@ class ItemDetailsScreen extends ConsumerWidget {
                             onPressed: () {
                               // Confirm Delete
                               showDialog(
-                                context: context,
+                                context: parentContext,
                                 builder: (ctx) => AlertDialog(
                                   title: const Text('Delete Item?'),
                                   content: const Text(
@@ -687,15 +795,19 @@ class ItemDetailsScreen extends ConsumerWidget {
                                       ),
                                       onPressed: () async {
                                         Navigator.pop(ctx); // Close alert
-                                        Navigator.pop(context); // Close sheet
+                                        Navigator.pop(
+                                          sheetContext,
+                                        ); // Close sheet
                                         try {
-                                          await firestoreService.deleteProduct(item.id);
-                                          if (context.mounted) {
+                                          await firestoreService.deleteProduct(
+                                            item.id,
+                                          );
+                                          if (parentContext.mounted) {
                                             Navigator.pop(
-                                              context,
+                                              parentContext,
                                             ); // Go back to Home
                                             ScaffoldMessenger.of(
-                                              context,
+                                              parentContext,
                                             ).showSnackBar(
                                               const SnackBar(
                                                 content: Text(
@@ -705,12 +817,14 @@ class ItemDetailsScreen extends ConsumerWidget {
                                             );
                                           }
                                         } catch (e) {
-                                          if (context.mounted) {
+                                          if (parentContext.mounted) {
                                             ScaffoldMessenger.of(
-                                              context,
+                                              parentContext,
                                             ).showSnackBar(
                                               SnackBar(
-                                                content: Text('Delete failed: $e'),
+                                                content: Text(
+                                                  'Delete failed: $e',
+                                                ),
                                               ),
                                             );
                                           }
@@ -772,17 +886,20 @@ class ItemDetailsScreen extends ConsumerWidget {
                 snap.docs.map((doc) => ReviewModel.fromFirestore(doc)).toList(),
           ),
       builder: (context, snapshot) {
-        if (snapshot.hasError)
+        if (snapshot.hasError) {
           return Text('Error loading reviews: ${snapshot.error}');
-        if (snapshot.connectionState == ConnectionState.waiting)
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
+        }
 
         final reviews = snapshot.data ?? [];
-        if (reviews.isEmpty)
+        if (reviews.isEmpty) {
           return const Text(
             'No reviews yet. Be the first to rent and review!',
             style: TextStyle(color: Colors.grey),
           );
+        }
 
         return ListView.separated(
           shrinkWrap: true,
@@ -887,12 +1004,12 @@ class ItemDetailsScreen extends ConsumerWidget {
           context,
         ).showSnackBar(const SnackBar(content: Text('Updating item...')));
       }
-      
+
       await FirestoreService(
         FirebaseFirestore.instance,
         FirebaseAuth.instance,
       ).updateProduct(itemId, updates);
-      
+
       if (context.mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
     } catch (e) {
       if (context.mounted) {
@@ -1026,10 +1143,7 @@ class FullScreenImageViewer extends StatelessWidget {
               maxScale: 5.0,
               child: Hero(
                 tag: tag,
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.contain,
-                ),
+                child: Image.network(imageUrl, fit: BoxFit.contain),
               ),
             ),
           ),

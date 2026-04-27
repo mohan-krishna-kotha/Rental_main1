@@ -4,6 +4,46 @@ import '../../../core/models/kyc_model.dart';
 import '../widgets/kyc_status_dialog.dart';
 
 class KycEnforcement {
+  static bool hasValidPhoneNumber(UserModel user) {
+    final raw = user.phoneNumber?.trim() ?? '';
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    return digits.length == 10;
+  }
+
+  static Future<bool> ensurePhoneNumber({
+    required BuildContext context,
+    required UserModel user,
+    required String actionDescription,
+    VoidCallback? onAddPhone,
+  }) async {
+    if (hasValidPhoneNumber(user)) return true;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Phone Number Required'),
+        content: Text(
+          'To $actionDescription, please add your phone number in Settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              onAddPhone?.call();
+            },
+            child: const Text('Go to Settings'),
+          ),
+        ],
+      ),
+    );
+
+    return false;
+  }
+
   /// Check if user can list items and show appropriate dialog if not
   static Future<bool> canUserListItems({
     required BuildContext context,

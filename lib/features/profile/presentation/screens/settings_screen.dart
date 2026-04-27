@@ -6,6 +6,7 @@ import '../../../../core/models/user_model.dart';
 import '../../../../core/providers/locale_provider.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../widgets/edit_display_name_dialog.dart';
+import '../widgets/edit_phone_number_dialog.dart';
 import 'change_password_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -17,7 +18,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(userModelProvider).value;
@@ -28,7 +28,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (currentUser == null) {
       return Scaffold(
-        body: Center(child: Text(l10n.signIn)), // Reusing signIn generally or add a specific message if needed, but 'signIn' is close. Actually "Please sign in..." is specific. Let's keep it hardcoded or add key. User didn't report this one specifically, but let's be thorough.
+        body: Center(
+          child: Text(l10n.signIn),
+        ), // Reusing signIn generally or add a specific message if needed, but 'signIn' is close. Actually "Please sign in..." is specific. Let's keep it hardcoded or add key. User didn't report this one specifically, but let's be thorough.
         // Wait, I didn't add "Please sign in to access settings". I'll skip this one for now to avoid error, or use "guestSubtitle" if appropriate? No.
         // I will keep "Please sign in to access settings" hardcoded or use a generic "sign in" if I have it. I added "signIn".
         // Let's just leave this specific error message for now as I missed adding a key for it.
@@ -63,14 +65,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 _settingTile(
                   context,
+                  icon: Icons.phone_outlined,
+                  title: 'Phone Number',
+                  subtitle:
+                      (currentUser.phoneNumber != null &&
+                          currentUser.phoneNumber!.trim().isNotEmpty)
+                      ? currentUser.phoneNumber!
+                      : 'Add your phone number',
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => EditPhoneNumberDialog(
+                        currentPhoneNumber: currentUser.phoneNumber,
+                      ),
+                    );
+                  },
+                ),
+                _settingTile(
+                  context,
                   icon: Icons.lock_outline,
-                  title: FirebaseAuth.instance.currentUser?.providerData
-                              .any((p) => p.providerId == 'password') ==
+                  title:
+                      FirebaseAuth.instance.currentUser?.providerData.any(
+                            (p) => p.providerId == 'password',
+                          ) ==
                           true
                       ? l10n.changePassword
                       : l10n.setPassword,
-                  subtitle: FirebaseAuth.instance.currentUser?.providerData
-                              .any((p) => p.providerId == 'password') ==
+                  subtitle:
+                      FirebaseAuth.instance.currentUser?.providerData.any(
+                            (p) => p.providerId == 'password',
+                          ) ==
                           true
                       ? l10n.resetCredentials
                       : l10n.createPassword,
@@ -78,7 +102,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const ChangePasswordScreen()),
+                        builder: (_) => const ChangePasswordScreen(),
+                      ),
                     );
                   },
                 ),
@@ -144,9 +169,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: Text(l10n.signOutConfirmation),
-                        content: Text(
-                          l10n.signOutMessage,
-                        ),
+                        content: Text(l10n.signOutMessage),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context, false),
@@ -177,7 +200,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildHeroBanner(BuildContext context, UserModel user, AppLocalizations l10n) {
+  Widget _buildHeroBanner(
+    BuildContext context,
+    UserModel user,
+    AppLocalizations l10n,
+  ) {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(22),
@@ -219,7 +246,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     color: Colors.white70,
                   ),
                 ),
-
               ],
             ),
           ),
@@ -288,8 +314,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context) => SimpleDialog(
         title: const Text('Select Language'),
         children: [
-          _buildLanguageOption('English', 'en', currentLocale.languageCode == 'en'),
-          _buildLanguageOption('Hindi', 'hi', currentLocale.languageCode == 'hi'),
+          _buildLanguageOption(
+            'English',
+            'en',
+            currentLocale.languageCode == 'en',
+          ),
+          _buildLanguageOption(
+            'Hindi',
+            'hi',
+            currentLocale.languageCode == 'hi',
+          ),
         ],
       ),
     );
@@ -314,5 +348,3 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 }
-
-

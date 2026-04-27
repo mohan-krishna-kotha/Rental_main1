@@ -41,6 +41,14 @@
 
   <title>rental_app</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Keep reCAPTCHA visible but move it away from bottom navigation controls. */
+    .grecaptcha-badge {
+      bottom: 84px !important;
+      right: 10px !important;
+      z-index: 10 !important;
+    }
+  </style>
   <!-- Google Maps -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDwLR8YZ9z659soqNniOpRcUIXlnDolKOs"></script>
 </head>

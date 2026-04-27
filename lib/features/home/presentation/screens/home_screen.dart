@@ -9,7 +9,6 @@ import '../../../../core/providers/location_provider.dart';
 import '../../../../core/providers/favorites_provider.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/services/location_service.dart';
-import '../../../booking/presentation/booking_screen.dart';
 import '../../../add_listing/presentation/screens/add_listing_screen.dart';
 import 'item_details_screen.dart';
 import 'subscription_screen.dart';
@@ -366,7 +365,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildSubscriptionChip(BuildContext context, UserModel? currentUser, AppLocalizations l10n) {
+  Widget _buildSubscriptionChip(
+    BuildContext context,
+    UserModel? currentUser,
+    AppLocalizations l10n,
+  ) {
     final tier = currentUser?.subscriptionTier ?? 'basic';
     final isPremium = tier != 'basic';
     final tierVisual = _resolveTier(tier);
@@ -487,8 +490,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               itemBuilder: (context, index) {
                 final pill = _categoryPills[index];
                 final isSelected = _selectedCategory == pill.name;
-                final localizedName = _getLocalizedCategoryName(pill.name, l10n);
-                return _buildCategoryChip(pill, isSelected, localizedName, l10n);
+                final localizedName = _getLocalizedCategoryName(
+                  pill.name,
+                  l10n,
+                );
+                return _buildCategoryChip(
+                  pill,
+                  isSelected,
+                  localizedName,
+                  l10n,
+                );
               },
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemCount: _categoryPills.length,
@@ -499,7 +510,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildCategoryChip(CategoryPill pill, bool isSelected, String localizedName, AppLocalizations l10n) {
+  Widget _buildCategoryChip(
+    CategoryPill pill,
+    bool isSelected,
+    String localizedName,
+    AppLocalizations l10n,
+  ) {
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -579,7 +595,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         if (filtered.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-            child: _buildEmptyState(context), // Assuming _buildEmptyState exists (might need updating too if it has hardcoded strings)
+            child: _buildEmptyState(
+              context,
+            ), // Assuming _buildEmptyState exists (might need updating too if it has hardcoded strings)
           );
         }
 
@@ -623,7 +641,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                           )
                         : null;
-                    return _buildFeaturedCard(context, item, index, distance, l10n); // Pass l10n
+                    return _buildFeaturedCard(
+                      context,
+                      item,
+                      index,
+                      distance,
+                      l10n,
+                    ); // Pass l10n
                   },
                 ),
               ),
@@ -642,7 +666,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       : null;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildRecommendationTile(context, item, distance, l10n), // Pass l10n if needed, assumes it might use pricePerDay
+                    child: _buildRecommendationTile(
+                      context,
+                      item,
+                      distance,
+                      l10n,
+                    ), // Pass l10n if needed, assumes it might use pricePerDay
                   );
                 }),
               ],
@@ -729,72 +758,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: accent.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            _getLocalizedCategoryName(item.categoryName, l10n), // Use localized name
-                            style: TextStyle(color: accent, fontSize: 12),
-                          ),
-                        ),
-                        const Spacer(),
-                        if (distanceLabel != null)
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.place,
-                                size: 16,
-                                color: Colors.grey,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                distanceLabel,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: Colors.grey.shade600),
+                              decoration: BoxDecoration(
+                                color: accent.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                            ],
+                              child: Text(
+                                _getLocalizedCategoryName(
+                                  item.categoryName,
+                                  l10n,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: accent, fontSize: 12),
+                              ),
+                            ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: const Color(0xFF2B1B1F),
-                        fontWeight: FontWeight.w700,
+                          if (distanceLabel != null) ...[
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.place,
+                                    size: 16,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      distanceLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Colors.grey.shade600,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Text(
-                          l10n.pricePerDay(item.rentalPricePerDay.toStringAsFixed(0)),
-                          style: Theme.of(context).textTheme.titleMedium
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
-                                color: accent,
-                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF2B1B1F),
+                                fontWeight: FontWeight.w700,
                               ),
                         ),
-                        const Spacer(),
-                        _buildFavoriteButton(context, item),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l10n.pricePerDay(
+                                item.rentalPricePerDay.toStringAsFixed(0),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: accent,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildFavoriteButton(context, item),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -851,7 +910,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       width: 72,
                       height: 72,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _iconBox(accent, item.categoryName),
+                      errorBuilder: (_, __, ___) =>
+                          _iconBox(accent, item.categoryName),
                     )
                   : _iconBox(accent, item.categoryName),
             ),
@@ -874,15 +934,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  
+
                   // Posted Date
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today_outlined, size: 11, color: Colors.grey),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 11,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Posted $postedDate',
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -902,12 +969,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   // Location + Distance
                   Row(
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 12, color: Colors.grey),
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 12,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 3),
                       Flexible(
                         child: Text(
-                          distanceLabel != null ? '$city • $distanceLabel' : city,
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          distanceLabel != null
+                              ? '$city • $distanceLabel'
+                              : city,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -978,7 +1054,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildErrorState(Object err, BuildContext context) { // Taking context to get l10n
+  Widget _buildErrorState(Object err, BuildContext context) {
+    // Taking context to get l10n
     final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
@@ -1002,9 +1079,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return InkWell(
       onTap: () async {
         if (currentUser == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.signInToManageFavorites)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(l10n.signInToManageFavorites)));
           return;
         }
         await ref

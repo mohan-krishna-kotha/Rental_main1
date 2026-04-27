@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/chat_model.dart';
@@ -269,7 +270,7 @@ class ChatService {
           emit();
         },
         onError: (e) {
-          print('Stream A Error: $e');
+          debugPrint('Stream A Error: $e');
           controller.addError(e);
         },
       );
@@ -280,7 +281,7 @@ class ChatService {
           emit();
         },
         onError: (e) {
-          print('Stream B Error: $e');
+          debugPrint('Stream B Error: $e');
           controller.addError(e);
         },
       );

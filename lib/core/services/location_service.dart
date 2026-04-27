@@ -28,9 +28,11 @@ class LocationService {
 
       // Get current position
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
-      
+
       return position;
     } catch (e) {
       debugPrint('Error getting location: $e');
@@ -40,13 +42,13 @@ class LocationService {
 
   static Future<bool> requestLocationPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
-    
+
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    
-    return permission == LocationPermission.always || 
-           permission == LocationPermission.whileInUse;
+
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
   }
 
   static Stream<Position> getLocationStream() {
@@ -65,7 +67,8 @@ class LocationService {
     double lat2,
     double lon2,
   ) {
-    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000; // Convert to km
+    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) /
+        1000; // Convert to km
   }
 
   // Format distance for display

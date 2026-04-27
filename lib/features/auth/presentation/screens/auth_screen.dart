@@ -31,9 +31,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Theme.of(
-      context,
-    ).primaryColor; // Should be the maroon color approx 0xFF781C2E
     // Hardcoding the maroon from the image if theme differs, but theme likely matches.
     // Based on previous code: Theme.of(context).colorScheme.primary is used.
     final maroonColor = const Color(0xFF781C2E);
@@ -69,7 +66,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: maroonColor.withOpacity(0.3),
+                                  color: maroonColor.withValues(alpha: 0.3),
                                   blurRadius: 12,
                                   offset: const Offset(0, 6),
                                 ),
@@ -121,23 +118,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             TextFormField(
                               controller: _nameController,
                               style: const TextStyle(color: Colors.black87),
-                                decoration: InputDecoration(
-                                  hintText: 'Full Name',
-                                  hintStyle: TextStyle(color: Colors.grey[500]),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF5F5F5),
-                                  prefixIcon: Icon(
-                                    Icons.person_outline,
-                                    color: Colors.grey[600],
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
+                              decoration: InputDecoration(
+                                hintText: 'Full Name',
+                                hintStyle: TextStyle(color: Colors.grey[500]),
+                                filled: true,
+                                fillColor: const Color(0xFFF5F5F5),
+                                prefixIcon: Icon(
+                                  Icons.person_outline,
+                                  color: Colors.grey[600],
                                 ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                              ),
                               validator: (value) {
                                 if (!_isLogin &&
                                     (value == null || value.isEmpty)) {
@@ -172,10 +169,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             ),
                             keyboardType: TextInputType.emailAddress,
                             validator: (value) {
-                              if (value == null || value.isEmpty)
+                              if (value == null || value.isEmpty) {
                                 return 'Please enter your email';
-                              if (!value.contains('@'))
+                              }
+                              if (!value.contains('@')) {
                                 return 'Please enter a valid email';
+                              }
                               return null;
                             },
                           ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
@@ -218,10 +217,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               ),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty)
+                              if (value == null || value.isEmpty) {
                                 return 'Please enter your password';
-                              if (value.length < 6)
+                              }
+                              if (value.length < 6) {
                                 return 'Password must be at least 6 characters';
+                              }
                               return null;
                             },
                           ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2),
@@ -470,20 +471,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       final authService = ref.read(authServiceProvider);
       final firestoreService = ref.read(firestoreServiceProvider);
 
-      print('Starting Google Sign In...');
+      debugPrint('Starting Google Sign In...');
       final credential = await authService.signInWithGoogle();
 
       // If credential is null (cancelled), we just return
       if (credential == null) {
-        print('Google Sign In cancelled by user');
+        debugPrint('Google Sign In cancelled by user');
         if (mounted) setState(() => _isLoading = false);
         return;
       }
 
-      print('Google Sign In successful: ${credential.user?.uid}');
+      debugPrint('Google Sign In successful: ${credential.user?.uid}');
 
       if (credential.user != null) {
-        print('Creating/updating user profile...');
+        debugPrint('Creating/updating user profile...');
 
         // Create/update user profile
         await firestoreService.createUserProfile(credential.user!);
@@ -492,9 +493,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         final userExists = await firestoreService.userExistsInFirestore(
           credential.user!.uid,
         );
-        print('User exists in Firestore after creation: $userExists');
+        debugPrint('User exists in Firestore after creation: $userExists');
 
-        print('User profile created successfully');
+        debugPrint('User profile created successfully');
 
         if (!mounted) return;
 
@@ -511,7 +512,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         );
       }
     } catch (e) {
-      print('Error in Google Sign In: $e');
+      debugPrint('Error in Google Sign In: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -61,13 +61,13 @@ class FirestoreService {
 
       // We use set(..., SetOptions(merge: true)) to correctly initialize if missing
       // But we must NOT use product.toFirestore() directly as it has the mock ID.
-      print('Attempting to Seed Product: ${product.id} as User: $uid');
+      debugPrint('Attempting to Seed Product: ${product.id} as User: $uid');
       await _firestore.collection('products').doc(product.id).set(data);
-      print('Seeding Success!');
+      debugPrint('Seeding Success!');
     } catch (e) {
       // If it exists, it might fail if we don't own it. That's fine.
       // Ignored to prevent blocking the flow if product exists.
-      print('Seeding note (Safe Fail): $e');
+      debugPrint('Seeding note (Safe Fail): $e');
     }
   }
 
@@ -253,8 +253,71 @@ class FirestoreService {
           .collection('booking_requests')
           .doc(request.id)
           .set(request.toFirestore());
+
+      // Also create a lightweight notification entry for the owner
+      try {
+        final notifRef = _firestore.collection('notifications').doc();
+        await notifRef.set({
+          'userId': request.ownerId,
+          'senderId': request.renterId,
+          'type': 'booking_request',
+          'bookingRequestId': request.id,
+          'title': 'New rental request',
+          'body': '${request.renterName} requested ${request.productName}',
+          'seen': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Failed to write notification doc: $e');
+      }
     } catch (e) {
       throw 'Failed to create booking request: $e';
+    }
+  }
+
+  /// Update owner's last-seen timestamp for booking requests
+  Future<void> updateOwnerLastSeenBookingRequests(String ownerId) async {
+    try {
+      await _firestore.collection('users').doc(ownerId).update({
+        'lastSeenBookingRequestsAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Failed to update lastSeenBookingRequestsAt: $e');
+    }
+  }
+
+  /// Save user's FCM token to their profile document. Allows server or
+  /// Cloud Functions to target this device/user for push notifications later.
+  Future<void> saveUserFcmToken(String userId, String token) async {
+    try {
+      final userRef = _firestore.collection('users').doc(userId);
+      await userRef.set({
+        'fcmTokens': FieldValue.arrayUnion([token]),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Failed to save FCM token: $e');
+    }
+  }
+
+  /// Mark all unseen booking_request notifications for owner as seen
+  Future<void> markNotificationsSeenForOwner(String ownerId) async {
+    try {
+      final snap = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: ownerId)
+          .where('type', isEqualTo: 'booking_request')
+          .where('seen', isEqualTo: false)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.update(doc.reference, {'seen': true});
+      }
+      if (snap.docs.isNotEmpty) {
+        await batch.commit();
+      }
+    } catch (e) {
+      debugPrint('Failed to mark notifications seen: $e');
     }
   }
 
@@ -271,15 +334,202 @@ class FirestoreService {
         );
   }
 
+  Stream<List<BookingRequestModel>> getOwnerBookingRequests(String ownerId) {
+    return _firestore
+        .collection('booking_requests')
+        .where('ownerId', isEqualTo: ownerId)
+        .snapshots()
+        .map((snapshot) {
+          final requests = snapshot.docs
+              .map((doc) => BookingRequestModel.fromFirestore(doc))
+              .where((request) => request.status.toLowerCase() == 'pending')
+              .toList();
+          requests.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return requests;
+        });
+  }
+
+  Stream<List<BookingRequestModel>> getUserBookingRequests(String userId) {
+    return _firestore
+        .collection('booking_requests')
+        .where('buyerId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+          final requests = snapshot.docs
+              .map((doc) => BookingRequestModel.fromFirestore(doc))
+              .toList();
+          requests.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return requests;
+        });
+  }
+
+  Future<void> cancelBookingRequestByUser(String requestId) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw 'User not authenticated';
+
+    final docRef = _firestore.collection('booking_requests').doc(requestId);
+    final doc = await docRef.get();
+    if (!doc.exists) throw 'Booking request not found';
+
+    final data = doc.data() ?? <String, dynamic>{};
+    final buyerId = (data['buyerId'] ?? '').toString();
+    final status = (data['status'] ?? '').toString().toLowerCase();
+
+    if (buyerId != uid) throw 'Unauthorized request';
+    if (status != 'pending') throw 'Only pending requests can be cancelled';
+
+    await docRef.update({
+      'status': 'cancelled',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   // 3. Approve Booking Request (Admin Action)
   // Converting Request -> Order + Updating Product
-  Future<void> approveBookingRequest(
-    BookingRequestModel request,
-    OrderModel newOrder,
-    OrderItemModel orderItem,
-  ) async {
-    // ... (Existing logic for Booking Requests) ...
-    // Keeping this if we ever revert or stick to hybrid.
+  Future<void> approveBookingRequest(BookingRequestModel request) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) throw 'User not authenticated';
+
+      final product = await getProductById(request.productId);
+      if (product == null) throw 'Product not found';
+      if (product.ownerId != currentUser.uid) {
+        throw 'Only the listing owner can approve this request';
+      }
+
+      await checkAvailability(
+        request.productId,
+        request.startDate,
+        request.endDate,
+      );
+
+      final orderId = request.id;
+      final orderRef = _firestore.collection('orders').doc(orderId);
+      final requestRef = _firestore
+          .collection('booking_requests')
+          .doc(request.id);
+      final productRef = _firestore
+          .collection('products')
+          .doc(request.productId);
+
+      await _firestore.runTransaction((transaction) async {
+        final requestSnap = await transaction.get(requestRef);
+        if (!requestSnap.exists) {
+          throw 'Booking request not found';
+        }
+
+        final requestData = requestSnap.data() as Map<String, dynamic>;
+        final currentStatus = (requestData['status'] ?? 'pending')
+            .toString()
+            .toLowerCase();
+        if (currentStatus != 'pending') {
+          throw 'Only pending booking requests can be approved';
+        }
+
+        final productSnap = await transaction.get(productRef);
+        if (!productSnap.exists) {
+          throw 'Product not found';
+        }
+
+        final orderNumber =
+            'ORD-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+        final now = DateTime.now();
+
+        transaction.set(orderRef, {
+          'id': orderId,
+          'orderNumber': orderNumber,
+          'orderType': 'rental',
+          'orderStatus': 'confirmed',
+          'paymentStatus': 'pending',
+          'depositAmount':
+              product.securityDeposit ?? (request.totalPrice * 0.2),
+          'finalAmount': request.totalPrice,
+          'totalAmount': request.totalPrice,
+          'taxAmount': 0.0,
+          'userId': request.renterId,
+          'ownerId': request.ownerId,
+          'createdAt': Timestamp.fromDate(now),
+          'updatedAt': Timestamp.fromDate(now),
+        });
+
+        final itemId = const Uuid().v4();
+        transaction.set(orderRef.collection('items').doc(itemId), {
+          'id': itemId,
+          'productId': request.productId,
+          'productName': request.productName,
+          'quantity': 1,
+          'unitPrice': request.totalPrice,
+          'totalPrice': request.totalPrice,
+          'rentalStartDate': Timestamp.fromDate(request.startDate),
+          'rentalEndDate': Timestamp.fromDate(request.endDate),
+          'createdAt': Timestamp.fromDate(now),
+        });
+
+        transaction.set(orderRef.collection('rentals').doc('details'), {
+          'id': 'details',
+          'depositAmount':
+              product.securityDeposit ?? (request.totalPrice * 0.2),
+          'startDate': Timestamp.fromDate(request.startDate),
+          'endDate': Timestamp.fromDate(request.endDate),
+          'returnStatus': 'pending',
+          'returnedAt': null,
+          'refundStatus': 'pending',
+          'refundedAt': null,
+        });
+
+        transaction.set(productRef.collection('bookings').doc(orderId), {
+          'startDate': Timestamp.fromDate(request.startDate),
+          'endDate': Timestamp.fromDate(request.endDate),
+          'orderId': orderId,
+          'buyerId': request.renterId,
+          'renterId': request.renterId,
+          'ownerId': request.ownerId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        transaction.update(requestRef, {
+          'status': 'approved',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (e) {
+      throw 'Failed to approve booking request: $e';
+    }
+  }
+
+  Future<void> rejectBookingRequest(String requestId) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) throw 'User not authenticated';
+
+      final requestRef = _firestore
+          .collection('booking_requests')
+          .doc(requestId);
+      final requestSnap = await requestRef.get();
+      if (!requestSnap.exists) {
+        throw 'Booking request not found';
+      }
+
+      final requestData = requestSnap.data() ?? <String, dynamic>{};
+      final status = (requestData['status'] ?? '').toString().toLowerCase();
+      final productId = (requestData['productId'] ?? '').toString();
+      if (status != 'pending') {
+        throw 'Only pending booking requests can be rejected';
+      }
+
+      final product = await getProductById(productId);
+      if (product == null) throw 'Product not found';
+      if (product.ownerId != currentUser.uid) {
+        throw 'Only the listing owner can reject this request';
+      }
+
+      await requestRef.update({
+        'status': 'rejected',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw 'Failed to reject booking request: $e';
+    }
   }
 
   // 3b. Approve Product-Based Booking (User updates Product -> 'processing')
@@ -553,6 +803,163 @@ class FirestoreService {
     await _firestore.collection('orders').doc(orderId).update(updates);
   }
 
+  Future<bool> createRentalIntentIfAbsent({
+    required OrderModel order,
+    required List<OrderItemModel> orderItems,
+  }) async {
+    final orderRef = _firestore.collection('orders').doc(order.id);
+    final existing = await orderRef.get();
+    if (existing.exists) return false;
+
+    await createCompleteOrder(
+      order: order,
+      orderItems: orderItems,
+      rentalData: {
+        'startDate': orderItems.first.rentalStartDate,
+        'endDate': orderItems.first.rentalEndDate,
+        'returnStatus': 'pending',
+        'refundStatus': 'pending',
+      },
+    );
+    return true;
+  }
+
+  Future<List<String>> activateStartedPendingRentals(String userId) async {
+    final now = DateTime.now();
+
+    final snapshot = await _firestore
+        .collection('orders')
+        .where('userId', isEqualTo: userId)
+        .where('orderType', isEqualTo: 'rental')
+        .where('orderStatus', isEqualTo: 'pending')
+        .get();
+
+    final startedOrderNumbers = <String>[];
+
+    for (final doc in snapshot.docs) {
+      final rentalDoc = await doc.reference
+          .collection('rentals')
+          .doc('details')
+          .get();
+      if (!rentalDoc.exists) continue;
+
+      final startDate = (rentalDoc.data()?['startDate'] as Timestamp?)
+          ?.toDate();
+      if (startDate == null || startDate.isAfter(now)) continue;
+
+      await doc.reference.update({
+        'orderStatus': 'active',
+        'rentalStartedAt': FieldValue.serverTimestamp(),
+        'startNotifiedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      final orderNumber = (doc.data()['orderNumber'] ?? doc.id).toString();
+      startedOrderNumbers.add(orderNumber);
+    }
+
+    return startedOrderNumbers;
+  }
+
+  Future<List<String>> completeEndedActiveRentals(String userId) async {
+    final now = DateTime.now();
+
+    final snapshot = await _firestore
+        .collection('orders')
+        .where('userId', isEqualTo: userId)
+        .where('orderType', isEqualTo: 'rental')
+        .where('orderStatus', whereIn: ['confirmed', 'active'])
+        .get();
+
+    final completedOrderNumbers = <String>[];
+
+    for (final doc in snapshot.docs) {
+      final rentalDoc = await doc.reference
+          .collection('rentals')
+          .doc('details')
+          .get();
+      if (!rentalDoc.exists) continue;
+
+      final endDate = (rentalDoc.data()?['endDate'] as Timestamp?)?.toDate();
+      if (endDate == null || now.isBefore(endDate)) continue;
+
+      final itemsSnap = await doc.reference.collection('items').get();
+
+      await doc.reference.update({
+        'orderStatus': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      await doc.reference.collection('rentals').doc('details').set({
+        'returnStatus': 'returned',
+        'returnedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      for (final itemDoc in itemsSnap.docs) {
+        final productId = itemDoc.data()['productId'];
+        if (productId == null || productId.toString().isEmpty) continue;
+
+        try {
+          await _firestore.collection('products').doc(productId).update({
+            'status': 'approved',
+          });
+        } catch (e) {
+          debugPrint('Error unlocking product $productId after completion: $e');
+        }
+      }
+
+      final orderNumber = (doc.data()['orderNumber'] ?? doc.id).toString();
+      completedOrderNumbers.add(orderNumber);
+    }
+
+    return completedOrderNumbers;
+  }
+
+  Future<void> cancelPendingRentalIfNotStarted({
+    required String orderId,
+    required String userId,
+  }) async {
+    final orderRef = _firestore.collection('orders').doc(orderId);
+    final orderDoc = await orderRef.get();
+    if (!orderDoc.exists) throw 'Order not found';
+
+    final data = orderDoc.data()!;
+    if ((data['userId'] ?? '') != userId) throw 'Unauthorized request';
+
+    final status = (data['orderStatus'] ?? '').toString().toLowerCase();
+    if (status != 'pending') {
+      throw 'Only pending rentals can be cancelled';
+    }
+
+    final rentalDoc = await orderRef.collection('rentals').doc('details').get();
+    final startDate = (rentalDoc.data()?['startDate'] as Timestamp?)?.toDate();
+    if (startDate != null && !startDate.isAfter(DateTime.now())) {
+      throw 'Rental has already started and cannot be cancelled';
+    }
+
+    final items = await getOrderItems(orderId);
+
+    for (final item in items) {
+      final bookingSnap = await _firestore
+          .collection('products')
+          .doc(item.productId)
+          .collection('bookings')
+          .where('orderId', isEqualTo: orderId)
+          .get();
+
+      for (final bookingDoc in bookingSnap.docs) {
+        await bookingDoc.reference.delete();
+      }
+    }
+
+    await orderRef.update({
+      'orderStatus': 'cancelled',
+      'cancelledAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   // Update rental details (for return, refund etc.)
   Future<void> updateOrderRentalDetails(
     String orderId,
@@ -752,66 +1159,79 @@ class FirestoreService {
 
   Future<void> createUserProfile(User user, {String? name}) async {
     try {
-      print(
+      debugPrint(
         'Creating user profile for: ${user.uid}, email: ${user.email}, name: ${name ?? user.displayName}',
       );
 
       // Check if user already exists
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       if (userDoc.exists) {
-        print('User profile already exists, updating with merge...');
+        debugPrint('User profile already exists, updating with merge...');
       } else {
-        print('Creating new user profile...');
+        debugPrint('Creating new user profile...');
       }
 
       final userModel = UserModel(
         uid: user.uid,
         email: user.email!,
         displayName: name ?? user.displayName ?? 'User',
+        phoneNumber: user.phoneNumber,
         photoURL: user.photoURL,
         createdAt: DateTime.now(),
       );
 
-      print('UserModel created: ${userModel.toFirestore()}');
+      debugPrint('UserModel created: ${userModel.toFirestore()}');
 
       await _firestore
           .collection('users')
           .doc(user.uid)
           .set(userModel.toFirestore(), SetOptions(merge: true));
 
-      print('User profile successfully saved to Firestore');
+      debugPrint('User profile successfully saved to Firestore');
 
       // Verify the document was actually saved
       final savedDoc = await _firestore.collection('users').doc(user.uid).get();
       if (savedDoc.exists) {
-        print(
+        debugPrint(
           'Verification: User document exists in Firestore with data: ${savedDoc.data()}',
         );
       } else {
-        print('Warning: User document was not found after saving!');
+        debugPrint('Warning: User document was not found after saving!');
       }
     } catch (e) {
-      print('Error: Failed to create user profile: $e');
+      debugPrint('Error: Failed to create user profile: $e');
       rethrow; // Re-throw the error so it can be caught by the calling function
     }
   }
 
   Future<void> updateUserKycStatus(String uid, String status) async {
     try {
-      await _firestore.collection('users').doc(uid).update({'kycStatus': status});
+      await _firestore.collection('users').doc(uid).update({
+        'kycStatus': status,
+      });
     } catch (e) {
       throw 'Failed to update user KYC status: $e';
     }
   }
 
   Future<void> updateDisplayName(String uid, String newName) async {
-     try {
-       await _firestore.collection('users').doc(uid).update({
-         'displayName': newName,
-       });
-     } catch (e) {
-       throw 'Failed to update display name in Firestore: $e';
-     }
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'displayName': newName,
+      });
+    } catch (e) {
+      throw 'Failed to update display name in Firestore: $e';
+    }
+  }
+
+  Future<void> updatePhoneNumber(String uid, String phoneNumber) async {
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'phoneNumber': phoneNumber,
+      });
+    } catch (e) {
+      throw 'Failed to update phone number in Firestore: $e';
+    }
   }
 
   /* ---------------- PAYMENT METHODS ---------------- */
@@ -824,17 +1244,17 @@ class FirestoreService {
         .collection('paymentMethods')
         .snapshots()
         .map((snap) {
-      final list = snap.docs
-          .map((doc) => PaymentMethodModel.fromFirestore(doc))
-          .toList();
-      // Sort: default first, then by createdAt descending
-      list.sort((a, b) {
-        if (a.isDefault && !b.isDefault) return -1;
-        if (!a.isDefault && b.isDefault) return 1;
-        return b.createdAt.compareTo(a.createdAt);
-      });
-      return list;
-    });
+          final list = snap.docs
+              .map((doc) => PaymentMethodModel.fromFirestore(doc))
+              .toList();
+          // Sort: default first, then by createdAt descending
+          list.sort((a, b) {
+            if (a.isDefault && !b.isDefault) return -1;
+            if (!a.isDefault && b.isDefault) return 1;
+            return b.createdAt.compareTo(a.createdAt);
+          });
+          return list;
+        });
   }
 
   /// Saves a new payment method under users/{uid}/paymentMethods.
@@ -891,7 +1311,7 @@ class FirestoreService {
       final doc = await _firestore.collection('users').doc(uid).get();
       return doc.exists;
     } catch (e) {
-      print('Error checking if user exists: $e');
+      debugPrint('Error checking if user exists: $e');
       return false;
     }
   }
@@ -1007,7 +1427,7 @@ class FirestoreService {
         );
       }).toList();
     } catch (e) {
-      print('Error fetching booked dates: $e');
+      debugPrint('Error fetching booked dates: $e');
       return [];
     }
   }
@@ -1114,7 +1534,7 @@ class FirestoreService {
         'kycStatus': status,
       });
     } catch (e) {
-      print('Failed to sync user KYC status: $e');
+      debugPrint('Failed to sync user KYC status: $e');
     }
   }
 
@@ -1221,6 +1641,118 @@ class FirestoreService {
     ) {
       return doc.data();
     });
+  }
+
+  Future<int> getCurrentMonthRentalCount(String userId) async {
+    final monthStart = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    final nextMonthStart = DateTime(monthStart.year, monthStart.month + 1, 1);
+
+    final snapshot = await _firestore
+        .collection('orders')
+        .where('userId', isEqualTo: userId)
+        .get();
+
+    return snapshot.docs.where((doc) {
+      final data = doc.data();
+      final orderType = (data['orderType'] ?? '').toString();
+      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+
+      if (orderType != 'rental' || createdAt == null) return false;
+      return !createdAt.isBefore(monthStart) &&
+          createdAt.isBefore(nextMonthStart);
+    }).length;
+  }
+
+  Future<int> getCurrentMonthContactUnlockCount(String userId) async {
+    final now = DateTime.now();
+    final monthKey = '${now.year}${now.month.toString().padLeft(2, '0')}';
+
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final data = userDoc.data() ?? <String, dynamic>{};
+      final usageRaw = data['contactUnlockUsage'];
+      if (usageRaw is Map<String, dynamic>) {
+        final value = usageRaw[monthKey];
+        if (value is num) return value.toInt();
+      }
+      return 0;
+    } catch (_) {
+      // Fallback for older data shape or temporary read failures.
+      final monthStart = DateTime(now.year, now.month, 1);
+      final nextMonthStart = DateTime(monthStart.year, monthStart.month + 1, 1);
+
+      final snapshot = await _firestore
+          .collection('contact_unlocks')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      return snapshot.docs.where((doc) {
+        final data = doc.data();
+        if ((data['monthKey'] ?? '').toString() == monthKey) return true;
+        final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+        if (createdAt == null) return false;
+        return !createdAt.isBefore(monthStart) &&
+            createdAt.isBefore(nextMonthStart);
+      }).length;
+    }
+  }
+
+  Future<void> recordContactUnlock({
+    required String userId,
+    required String productId,
+    required String unlockType,
+  }) async {
+    final now = DateTime.now();
+    final monthKey = '${now.year}${now.month.toString().padLeft(2, '0')}';
+
+    // Primary counter source (reliable with existing user write permissions).
+    final userRef = _firestore.collection('users').doc(userId);
+    await _firestore.runTransaction((transaction) async {
+      final userSnap = await transaction.get(userRef);
+      final currentData = userSnap.data() ?? <String, dynamic>{};
+      final usageMap = Map<String, dynamic>.from(
+        currentData['contactUnlockUsage'] ?? <String, dynamic>{},
+      );
+      final currentCount = (usageMap[monthKey] is num)
+          ? (usageMap[monthKey] as num).toInt()
+          : 0;
+      usageMap[monthKey] = currentCount + 1;
+
+      transaction.set(userRef, {
+        'contactUnlockUsage': usageMap,
+      }, SetOptions(merge: true));
+    });
+
+    // Best-effort audit trail.
+    try {
+      await _firestore.collection('contact_unlocks').add({
+        'userId': userId,
+        'productId': productId,
+        'unlockType': unlockType,
+        'monthKey': monthKey,
+        'createdAt': Timestamp.fromDate(now),
+      });
+    } catch (e) {
+      debugPrint('Contact unlock audit log write failed: $e');
+    }
+  }
+
+  Future<int> getCurrentMonthLendingCount(String userId) async {
+    final monthStart = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    final nextMonthStart = DateTime(monthStart.year, monthStart.month + 1, 1);
+
+    final snapshot = await _firestore
+        .collection('products')
+        .where('ownerId', isEqualTo: userId)
+        .get();
+
+    return snapshot.docs.where((doc) {
+      final data = doc.data();
+      final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+      if (createdAt == null) return false;
+      return !createdAt.isBefore(monthStart) &&
+          createdAt.isBefore(nextMonthStart);
+    }).length;
   }
 
   /* ---------------- ADMIN: MIGRATION ---------------- */
@@ -1392,8 +1924,7 @@ class FirestoreService {
     required String billingCycle,
     String? screenshotUrl,
   }) async {
-    final docRef =
-        _firestore.collection('subscription_verifications').doc();
+    final docRef = _firestore.collection('subscription_verifications').doc();
     await docRef.set({
       'id': docRef.id,
       'userId': userId,
@@ -1418,20 +1949,16 @@ class FirestoreService {
     required String docId,
     required String screenshotUrl,
   }) async {
-    await _firestore
-        .collection('subscription_verifications')
-        .doc(docId)
-        .update({
-      'screenshotUrl': screenshotUrl,
-    });
+    await _firestore.collection('subscription_verifications').doc(docId).update(
+      {'screenshotUrl': screenshotUrl},
+    );
   }
 
   /// Admin: stream all verification requests
   Stream<List<Map<String, dynamic>>> streamSubscriptionVerifications() {
-    return _firestore
-        .collection('subscription_verifications')
-        .snapshots()
-        .map((snap) {
+    return _firestore.collection('subscription_verifications').snapshots().map((
+      snap,
+    ) {
       final list = snap.docs.map((doc) {
         final data = Map<String, dynamic>.from(doc.data());
         data['id'] = doc.id;
@@ -1467,17 +1994,13 @@ class FirestoreService {
       'subscriptionExpiry': Timestamp.fromDate(expiry),
     });
 
-    batch.set(
-      _firestore.collection('subscriptions').doc(userId),
-      {
-        'subscriptionTier': tierId,
-        'subscriptionStatus': 'active',
-        'subscriptionExpiry': Timestamp.fromDate(expiry),
-        'userId': userId,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    batch.set(_firestore.collection('subscriptions').doc(userId), {
+      'subscriptionTier': tierId,
+      'subscriptionStatus': 'active',
+      'subscriptionExpiry': Timestamp.fromDate(expiry),
+      'userId': userId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
 
     await batch.commit();
   }
@@ -1492,9 +2015,9 @@ class FirestoreService {
         .collection('subscription_verifications')
         .doc(docId)
         .update({
-      'status': 'rejected',
-      'adminComment': reason,
-      'reviewedAt': FieldValue.serverTimestamp(),
-    });
+          'status': 'rejected',
+          'adminComment': reason,
+          'reviewedAt': FieldValue.serverTimestamp(),
+        });
   }
 }

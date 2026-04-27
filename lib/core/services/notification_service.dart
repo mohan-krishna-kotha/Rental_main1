@@ -60,6 +60,15 @@ class NotificationService {
     _isInitialized = true;
   }
 
+  Future<String?> getFcmToken() async {
+    try {
+      return await _firebaseMessaging.getToken();
+    } catch (e) {
+      debugPrint('Error getting FCM token: $e');
+      return null;
+    }
+  }
+
   Future<void> _initLocalNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -174,7 +183,7 @@ class NotificationService {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
+                      color: Colors.black.withValues(alpha: 0.15),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -185,7 +194,7 @@ class NotificationService {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(

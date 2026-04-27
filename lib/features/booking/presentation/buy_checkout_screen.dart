@@ -1,10 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../../../core/models/booking_request_model.dart';
-import '../../../../core/models/order_models.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/items_provider.dart';
@@ -14,74 +11,37 @@ import '../../profile/presentation/screens/kyc_screen.dart';
 import '../../profile/presentation/screens/settings_screen.dart';
 import '../../home/presentation/screens/subscription_screen.dart';
 
-class PaymentScreen extends ConsumerStatefulWidget {
-  final OrderModel order;
-  final List<OrderItemModel> items;
-  final ProductModel? sourceProduct;
+class BuyCheckoutScreen extends ConsumerStatefulWidget {
+  final ProductModel item;
 
-  const PaymentScreen({
-    super.key,
-    required this.order,
-    required this.items,
-    this.sourceProduct,
-  });
+  const BuyCheckoutScreen({super.key, required this.item});
 
   @override
-  ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
+  ConsumerState<BuyCheckoutScreen> createState() => _BuyCheckoutScreenState();
 }
 
-class _PaymentScreenState extends ConsumerState<PaymentScreen> {
+class _BuyCheckoutScreenState extends ConsumerState<BuyCheckoutScreen> {
   bool _isUnlocking = false;
   bool _isContactUnlocked = false;
 
   int? _usedThisMonth;
   int? _limitThisMonth;
 
-  ProductModel? _resolvedProduct;
   String? _ownerEmail;
   String? _ownerPhone;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadProduct();
-  }
-
-  Future<void> _loadProduct() async {
-    try {
-      final directProduct = widget.sourceProduct;
-      if (directProduct != null) {
-        if (!mounted) return;
-        setState(() => _resolvedProduct = directProduct);
-        return;
-      }
-
-      final firstItem = widget.items.first;
-      final product = await ref
-          .read(firestoreServiceProvider)
-          .getProductById(firstItem.productId);
-
-      if (!mounted) return;
-      setState(() => _resolvedProduct = product);
-    } catch (_) {
-      // Keep null product; UI will still show fallback details.
-    }
-  }
+  double get _salePrice => widget.item.salePrice ?? 0.0;
 
   Future<void> _unlockOwnerDetails() async {
     if (_isUnlocking || _isContactUnlocked) return;
-
-    final product = _resolvedProduct;
-    if (product == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please wait, item details are loading.')),
-      );
-      return;
-    }
-
     setState(() => _isUnlocking = true);
 
     try {
+      final salePrice = _salePrice;
+      if (salePrice <= 0) {
+        throw Exception('This item is not available for sale');
+      }
+
       final currentUser = ref.read(currentUserProvider);
       final userModel = ref.read(userModelProvider).value;
 
@@ -92,7 +52,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final hasPhone = await KycEnforcement.ensurePhoneNumber(
         context: context,
         user: userModel,
-        actionDescription: 'rent items',
+        actionDescription: 'buy items',
         onAddPhone: () {
           Navigator.push(
             context,
@@ -104,7 +64,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       if (!userModel.canBookItems) {
         if (!mounted) return;
-        final canRent = await KycEnforcement.canUserBookItems(
+        final canBuy = await KycEnforcement.canUserBookItems(
           context: context,
           user: userModel,
           onStartKyc: () {
@@ -114,7 +74,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             );
           },
         );
-        if (!canRent) return;
+        if (!canBuy) return;
       }
 
       final firestoreService = ref.read(firestoreServiceProvider);
@@ -169,53 +129,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         return;
       }
 
-      try {
-        await firestoreService.createRentalIntentIfAbsent(
-          order: widget.order,
-          orderItems: widget.items,
-        );
-      } catch (e) {
-        debugPrint(
-          'Order-based rental intent failed, trying request fallback: $e',
-        );
-
-        try {
-          final item = widget.items.first;
-          final bookingRequest = BookingRequestModel(
-            id: widget.order.id.isNotEmpty
-                ? widget.order.id
-                : const Uuid().v4(),
-            productId: product.id,
-            renterId: currentUser.uid,
-            ownerId: product.ownerId,
-            startDate: item.rentalStartDate,
-            endDate: item.rentalEndDate,
-            totalPrice: widget.order.totalAmount,
-            status: 'pending',
-            createdAt: DateTime.now(),
-            productName: product.title,
-            productImage: product.images.isNotEmpty
-                ? product.images.first
-                : null,
-            renterName: userModel.displayName,
-          );
-          await firestoreService.createBookingRequest(bookingRequest);
-        } catch (fallbackError) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Unable to create rental request: $fallbackError'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          return;
-        }
-      }
-
       final ownerDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(product.ownerId)
+          .doc(widget.item.ownerId)
           .get();
       final ownerData = ownerDoc.data() ?? <String, dynamic>{};
 
@@ -228,8 +144,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       try {
         await firestoreService.recordContactUnlock(
           userId: currentUser.uid,
-          productId: product.id,
-          unlockType: 'rental',
+          productId: widget.item.id,
+          unlockType: 'buy',
         );
         updatedUsed = usedThisMonth + 1;
       } catch (e) {
@@ -242,11 +158,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         _usedThisMonth = updatedUsed;
         _ownerEmail = ownerEmail.isNotEmpty
             ? ownerEmail
-            : '${product.ownerId}@rental.app';
+            : '${widget.item.ownerId}@rental.app';
         _ownerPhone = ownerPhone.isNotEmpty ? ownerPhone : null;
       });
     } catch (e, stack) {
-      debugPrint('ERROR: Rental checkout contact unlock failed: $e');
+      debugPrint('ERROR: Buy checkout contact unlock failed: $e');
       debugPrint(stack.toString());
 
       if (!mounted) return;
@@ -266,21 +182,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final firstItem = widget.items.first;
-    final product = _resolvedProduct;
+    final item = widget.item;
+    final salePrice = item.salePrice ?? 0.0;
 
-    final itemTitle = product?.title ?? firstItem.productName;
-    final ownerName = product?.ownerName ?? 'Owner';
-
-    final days = firstItem.rentalEndDate
-        .difference(firstItem.rentalStartDate)
-        .inDays;
-    final rentalDays = days > 0 ? days : 1;
-    final subtotal = rentalDays * firstItem.unitPrice;
+    if (salePrice <= 0 || item.transactionMode != 'sell') {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Buy Checkout')),
+        body: const Center(child: Text('This item is not available for sale.')),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rental Checkout'),
+        title: const Text('Buy Checkout'),
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
@@ -305,27 +219,30 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    itemTitle,
+                    item.title,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(ownerName, style: TextStyle(color: Colors.grey[700])),
+                  Text(
+                    item.ownerName,
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
                   const Divider(height: 24, thickness: 1),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Rental Duration',
+                        'Sale Price',
                         style: TextStyle(
                           color: Colors.black87,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
-                        '$rentalDays day(s)',
+                        'Rs ${salePrice.toStringAsFixed(0)}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
@@ -333,29 +250,31 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Estimated Rental Amount',
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w600,
+                  if (item.originalPrice != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Original Price (MRP)',
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Rs ${subtotal.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF781C2E),
+                        Text(
+                          'Rs ${item.originalPrice!.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                   const Divider(height: 24, thickness: 1),
                   const Text(
-                    'Escrow and in-app payment are currently disabled. Discuss rental terms and payment directly with the owner.',
+                    'Escrow and in-app payment are currently disabled. Discuss pricing and delivery directly with the owner.',
                     style: TextStyle(
                       color: Colors.black87,
                       fontWeight: FontWeight.w500,
@@ -401,7 +320,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (_isContactUnlocked) ...[
-                    _ContactRow(label: 'Name', value: ownerName),
+                    _ContactRow(label: 'Name', value: item.ownerName),
                     const SizedBox(height: 8),
                     _ContactRow(
                       label: 'Email',
@@ -414,7 +333,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'You can now contact the owner and finalize rental terms directly.',
+                      'You can now contact the owner and complete this purchase directly.',
                       style: TextStyle(
                         color: Colors.grey[700],
                         fontWeight: FontWeight.w500,

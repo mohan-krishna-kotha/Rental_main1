@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/items_provider.dart';
-import 'subscription_payment_screen.dart';
 
 const _maroon = Color(0xFF781C2E);
 
@@ -52,7 +50,7 @@ class _PaymentVerificationScreenState
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 50, // Lower quality for Base64 (to fit in 1MB limit)
-      maxWidth: 512,   // Smaller size
+      maxWidth: 512, // Smaller size
       maxHeight: 512,
     );
     if (picked != null) {
@@ -71,7 +69,7 @@ class _PaymentVerificationScreenState
       final bytes = await _screenshot!.readAsBytes();
       return base64Encode(bytes);
     } catch (e) {
-      print('Conversion error: $e');
+      debugPrint('Conversion error: $e');
       return null;
     }
   }
@@ -90,7 +88,9 @@ class _PaymentVerificationScreenState
       if (user == null) throw 'Not logged in';
 
       // 1. Create the document FIRST so it appears in Firestore immediately
-      final docId = await ref.read(firestoreServiceProvider).submitSubscriptionVerification(
+      final docId = await ref
+          .read(firestoreServiceProvider)
+          .submitSubscriptionVerification(
             userId: user.uid,
             userEmail: user.email ?? '',
             name: _nameCtrl.text.trim(),
@@ -107,7 +107,9 @@ class _PaymentVerificationScreenState
 
       // 3. Update the document with the URL link
       if (screenshotUrl != null) {
-        await ref.read(firestoreServiceProvider).updateSubscriptionVerificationUrl(
+        await ref
+            .read(firestoreServiceProvider)
+            .updateSubscriptionVerificationUrl(
               docId: docId,
               screenshotUrl: screenshotUrl,
             );
@@ -116,7 +118,8 @@ class _PaymentVerificationScreenState
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-              builder: (_) => const VerificationSubmittedScreen()),
+            builder: (_) => const VerificationSubmittedScreen(),
+          ),
         );
       }
     } catch (e) {
@@ -161,9 +164,9 @@ class _PaymentVerificationScreenState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _maroon.withOpacity(0.07),
+                  color: _maroon.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _maroon.withOpacity(0.15)),
+                  border: Border.all(color: _maroon.withValues(alpha: 0.15)),
                 ),
                 child: Row(
                   children: [
@@ -174,7 +177,9 @@ class _PaymentVerificationScreenState
                         'Please fill in the details below after completing your UPI payment of ₹${widget.amount.toStringAsFixed(0)}. '
                         'Your plan will be activated after admin verification.',
                         style: const TextStyle(
-                            fontSize: 13, color: Colors.black87),
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                   ],
@@ -187,7 +192,9 @@ class _PaymentVerificationScreenState
               Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 10),
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: _maroon,
                     borderRadius: BorderRadius.circular(30),
@@ -195,9 +202,10 @@ class _PaymentVerificationScreenState
                   child: Text(
                     '${widget.tierName} · ₹${widget.amount.toStringAsFixed(0)} · ${widget.billingCycle}',
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ).animate().fadeIn(delay: 100.ms),
@@ -211,8 +219,7 @@ class _PaymentVerificationScreenState
                 controller: _nameCtrl,
                 textCapitalization: TextCapitalization.words,
                 style: const TextStyle(color: Colors.black87),
-                decoration: _deco(
-                    'Enter your full name', Icons.person_outline),
+                decoration: _deco('Enter your full name', Icons.person_outline),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Name is required' : null,
               ).animate().fadeIn(delay: 150.ms),
@@ -225,11 +232,17 @@ class _PaymentVerificationScreenState
                 controller: _utrCtrl,
                 style: const TextStyle(color: Colors.black87),
                 decoration: _deco(
-                    'e.g. 123456789012 (12-digit UTR)', Icons.receipt_long),
+                  'e.g. 123456789012 (12-digit UTR)',
+                  Icons.receipt_long,
+                ),
                 keyboardType: TextInputType.text,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'UTR ID is required';
-                  if (v.trim().length < 6) return 'Enter a valid UTR / Transaction ID';
+                  if (v == null || v.trim().isEmpty) {
+                    return 'UTR ID is required';
+                  }
+                  if (v.trim().length < 6) {
+                    return 'Enter a valid UTR / Transaction ID';
+                  }
                   return null;
                 },
               ).animate().fadeIn(delay: 200.ms),
@@ -264,20 +277,26 @@ class _PaymentVerificationScreenState
                       ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_photo_alternate_outlined,
-                                size: 42,
-                                color: Colors.grey.shade400),
+                            Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 42,
+                              color: Colors.grey.shade400,
+                            ),
                             const SizedBox(height: 10),
                             const Text(
                               'Tap to upload payment screenshot',
                               style: TextStyle(
-                                  color: Colors.grey, fontSize: 13),
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             const Text(
                               'JPG, PNG supported',
                               style: TextStyle(
-                                  color: Colors.grey, fontSize: 11),
+                                color: Colors.grey,
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         )
@@ -297,20 +316,24 @@ class _PaymentVerificationScreenState
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.check_circle,
-                        color: Colors.green, size: 16),
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 16,
+                    ),
                     const SizedBox(width: 6),
                     const Text(
                       'Screenshot attached',
-                      style:
-                          TextStyle(color: Colors.green, fontSize: 12),
+                      style: TextStyle(color: Colors.green, fontSize: 12),
                     ),
                     const Spacer(),
                     TextButton(
                       onPressed: _pickScreenshot,
-                      child: const Text('Change',
-                          style: TextStyle(color: _maroon, fontSize: 12)),
-                    )
+                      child: const Text(
+                        'Change',
+                        style: TextStyle(color: _maroon, fontSize: 12),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -327,7 +350,8 @@ class _PaymentVerificationScreenState
                     backgroundColor: _maroon,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     elevation: 4,
                   ),
                   child: _isSubmitting
@@ -338,11 +362,15 @@ class _PaymentVerificationScreenState
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2),
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
                             ),
                             SizedBox(width: 12),
-                            Text('Submitting verification…',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              'Submitting verification…',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ],
                         )
                       : const Row(
@@ -353,7 +381,9 @@ class _PaymentVerificationScreenState
                             Text(
                               'Submit for Verification',
                               style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
                           ],
                         ),
@@ -365,8 +395,7 @@ class _PaymentVerificationScreenState
                 child: Text(
                   'Admin will verify and activate your plan within 24 hours.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
               ),
               const SizedBox(height: 32),
@@ -378,34 +407,34 @@ class _PaymentVerificationScreenState
   }
 
   Widget _label(String text) => Text(
-        text,
-        style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-            color: Colors.black87),
-      );
+    text,
+    style: const TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 14,
+      color: Colors.black87,
+    ),
+  );
 
   InputDecoration _deco(String hint, IconData icon) => InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-        prefixIcon: Icon(icon, size: 20, color: Colors.grey),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _maroon, width: 1.5),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      );
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+    prefixIcon: Icon(icon, size: 20, color: Colors.grey),
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.grey.shade300),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.grey.shade200),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _maroon, width: 1.5),
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  );
 }
 
 // ─── Verification Submitted Success Screen ────────────────────────────────────
@@ -423,14 +452,17 @@ class VerificationSubmittedScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.hourglass_top_rounded,
-                    color: Colors.orange, size: 72),
-              )
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.hourglass_top_rounded,
+                      color: Colors.orange,
+                      size: 72,
+                    ),
+                  )
                   .animate()
                   .scale(curve: Curves.elasticOut, duration: 700.ms)
                   .then()
@@ -441,9 +473,10 @@ class VerificationSubmittedScreen extends StatelessWidget {
               const Text(
                 'Verification Submitted!',
                 style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ).animate().fadeIn().moveY(begin: 12, end: 0),
 
               const SizedBox(height: 12),
@@ -469,13 +502,22 @@ class VerificationSubmittedScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     _statusRow(
-                        Icons.check_circle, Colors.green, 'Payment details submitted'),
+                      Icons.check_circle,
+                      Colors.green,
+                      'Payment details submitted',
+                    ),
                     const SizedBox(height: 12),
                     _statusRow(
-                        Icons.hourglass_empty, Colors.orange, 'Admin review pending'),
+                      Icons.hourglass_empty,
+                      Colors.orange,
+                      'Admin review pending',
+                    ),
                     const SizedBox(height: 12),
                     _statusRow(
-                        Icons.lock_clock, Colors.grey, 'Subscription activation'),
+                      Icons.lock_clock,
+                      Colors.grey,
+                      'Subscription activation',
+                    ),
                   ],
                 ),
               ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.15, end: 0),
@@ -488,17 +530,19 @@ class VerificationSubmittedScreen extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () {
                     // Pop back to profile / home
-                    Navigator.of(context)
-                        .popUntil((route) => route.isFirst);
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF781C2E),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
-                  child: const Text('Back to Home',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Back to Home',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ).animate().fadeIn(delay: 400.ms),
             ],
@@ -513,15 +557,18 @@ class VerificationSubmittedScreen extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 14,
-          backgroundColor: color.withOpacity(0.12),
+          backgroundColor: color.withValues(alpha: 0.12),
           child: Icon(icon, color: color, size: 16),
         ),
         const SizedBox(width: 12),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
       ],
     );
   }

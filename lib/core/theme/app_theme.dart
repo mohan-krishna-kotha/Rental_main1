@@ -29,7 +29,6 @@ class AppTheme {
       secondary: _secondary,
       tertiary: _tertiary,
       surfaceTint: _accent,
-      background: _background,
       brightness: Brightness.light,
     ),
     appBarTheme: AppBarTheme(
@@ -55,14 +54,16 @@ class AppTheme {
     ),
     chipTheme: ChipThemeData(
       backgroundColor: Colors.white,
-      selectedColor: _primary.withOpacity(0.12),
-      secondarySelectedColor: _primary.withOpacity(0.18),
+      selectedColor: _primary.withValues(alpha: 0.12),
+      secondarySelectedColor: _primary.withValues(alpha: 0.18),
       labelStyle: GoogleFonts.manrope(
         color: _primary,
         fontWeight: FontWeight.w600,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      shape: StadiumBorder(side: BorderSide(color: _primary.withOpacity(0.12))),
+      shape: StadiumBorder(
+        side: BorderSide(color: _primary.withValues(alpha: 0.12)),
+      ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: _primary,
@@ -79,7 +80,7 @@ class AppTheme {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: _background,
-      indicatorColor: _primary.withOpacity(0.12),
+      indicatorColor: _primary.withValues(alpha: 0.12),
       height: 70,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       labelTextStyle: WidgetStateProperty.all(
@@ -112,7 +113,7 @@ class AppTheme {
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: _primary, width: 2),
       ),
-      labelStyle: GoogleFonts.manrope(color: _primary.withOpacity(0.6)),
+      labelStyle: GoogleFonts.manrope(color: _primary.withValues(alpha: 0.6)),
       hintStyle: GoogleFonts.manrope(color: Colors.grey.shade500),
       prefixIconColor: _primary,
     ),
@@ -130,7 +131,7 @@ class AppTheme {
         textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600),
       ),
     ),
-    dividerColor: _primary.withOpacity(0.08),
+    dividerColor: _primary.withValues(alpha: 0.08),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

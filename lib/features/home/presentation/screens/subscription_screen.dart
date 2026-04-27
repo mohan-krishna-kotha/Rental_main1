@@ -2,7 +2,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/providers/items_provider.dart';
 import '../../../booking/presentation/subscription_payment_screen.dart';
+
+class _SubscriptionUsageData {
+  final int rentUsed;
+  final int lendUsed;
+  final int rentLimit;
+  final int lendLimit;
+
+  const _SubscriptionUsageData({
+    required this.rentUsed,
+    required this.lendUsed,
+    required this.rentLimit,
+    required this.lendLimit,
+  });
+}
+
+final subscriptionUsageProvider = FutureProvider<_SubscriptionUsageData?>((
+  ref,
+) async {
+  final user = ref.watch(currentUserProvider);
+  final userModel = ref.watch(userModelProvider).value;
+  if (user == null || userModel == null) return null;
+
+  final firestoreService = ref.watch(firestoreServiceProvider);
+  final rentUsed = await firestoreService.getCurrentMonthRentalCount(user.uid);
+  final lendUsed = await firestoreService.getCurrentMonthLendingCount(user.uid);
+
+  return _SubscriptionUsageData(
+    rentUsed: rentUsed,
+    lendUsed: lendUsed,
+    rentLimit: userModel.monthlyRentLimit,
+    lendLimit: userModel.monthlyLendLimit,
+  );
+});
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
@@ -28,25 +62,23 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       'subtitle': 'Free Forever',
       'monthly_price': 0,
       'yearly_price': 0,
-      'features': ['Browse Items', '5 Listings Limit', '10% Platform Fee'],
+      'features': ['Browse Items', '1 rental per month', '1 listing per month'],
       'pitch': 'Start renting or listing for free.',
     },
     {
       'id': 'renter_plus',
-      'title': 'Renter Plus',
+      'title': 'Renter Pro',
       'subtitle': 'For Renters',
       'monthly_price': 299,
       'yearly_price': 2999,
       'features': [
-        'Faster delivery',
-        'Reduced delivery charges',
-        '5% Platform Fee (vs 10%)',
+        '10 rentals per month',
+        '1 listing per month',
         'Priority customer support',
         'Flexible cancellation window',
         'Early access to new listings',
       ],
-      'pitch':
-          'Save time & money on every rental with faster service & lower fees.',
+      'pitch': 'Rent more every month with higher rental limits.',
     },
     {
       'id': 'lender_pro',
@@ -55,14 +87,14 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       'monthly_price': 499,
       'yearly_price': 4999,
       'features': [
+        '10 listings per month',
+        '1 rental per month',
         'High visibility (Top of search)',
-        '5% Platform Fee (vs 10%)',
-        'Unlimited listings (No limit)',
         'Performance insights',
         'Priority support',
         'Faster approval',
       ],
-      'pitch': 'Get more exposure, more bookings, and keep more earnings.',
+      'pitch': 'List more items each month and grow your lending activity.',
       'popular': true,
     },
     {
@@ -72,7 +104,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       'monthly_price': 699,
       'yearly_price': 6999,
       'features': [
-        'All Renter Plus Benefits',
+        '15 rentals per month',
+        '15 listings per month',
+        'All Renter Pro Benefits',
         'All Lender Pro Benefits',
         'Exclusive Pro Max Badge',
         'Ultimate Priority Support',
@@ -113,6 +147,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   Widget build(BuildContext context) {
     // Current plan check
     final userModel = ref.watch(userModelProvider).value;
+    final usageAsync = ref.watch(subscriptionUsageProvider);
     final currentTier = userModel?.subscriptionTier ?? 'basic';
 
     final selectedPlan = _plans.firstWhere((p) => p['id'] == _selectedTierId);
@@ -283,6 +318,97 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                 ],
               ).animate().fadeIn().slideY(begin: 0.1),
             ],
+
+            const SizedBox(height: 32),
+
+            // 2.5 Monthly Usage Meter
+            usageAsync.when(
+              data: (usage) {
+                if (usage == null) return const SizedBox.shrink();
+
+                final rentProgress = usage.rentLimit > 0
+                    ? (usage.rentUsed / usage.rentLimit).clamp(0.0, 1.0)
+                    : 0.0;
+                final lendProgress = usage.lendLimit > 0
+                    ? (usage.lendUsed / usage.lendLimit).clamp(0.0, 1.0)
+                    : 0.0;
+
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'This Month Usage',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: kPrimaryBurgundy,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Rentals: ${usage.rentUsed}/${usage.rentLimit}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          minHeight: 9,
+                          value: rentProgress,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            kPrimaryBurgundy,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Listings: ${usage.lendUsed}/${usage.lendLimit}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          minHeight: 9,
+                          value: lendProgress,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            kPrimaryBurgundy,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.08);
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
 
             const SizedBox(height: 32),
 

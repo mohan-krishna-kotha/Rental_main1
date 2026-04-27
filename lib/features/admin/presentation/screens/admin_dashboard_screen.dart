@@ -22,7 +22,9 @@ class AdminDashboardScreen extends ConsumerWidget {
     return userAsync.when(
       data: (user) {
         if (user == null || user.role != 'admin') {
-          return const Scaffold(body: Center(child: Text('Access Denied: Admins Only')));
+          return const Scaffold(
+            body: Center(child: Text('Access Denied: Admins Only')),
+          );
         }
 
         return Scaffold(
@@ -39,49 +41,82 @@ class AdminDashboardScreen extends ConsumerWidget {
                 'KYC Verification',
                 Icons.verified_user,
                 Colors.orange,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminKycScreen())),
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminKycScreen()),
+                ),
               ),
               _buildAdminTile(
                 context,
                 'Manage Categories',
                 Icons.category,
                 Colors.blue,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminCategoriesScreen())),
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminCategoriesScreen(),
+                  ),
+                ),
               ),
               _buildAdminTile(
                 context,
                 'Flagged Products',
                 Icons.flag,
                 Colors.red,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminFlaggedItemsScreen())),
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminFlaggedItemsScreen(),
+                  ),
+                ),
               ),
               _buildAdminTile(
                 context,
                 'Approve Products',
                 Icons.check_circle_outline,
                 Colors.green,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminProductsScreen())),
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminProductsScreen(),
+                  ),
+                ),
               ),
-              _buildAdminTile( // NEW: Rental Requests Tile
+              _buildAdminTile(
+                // NEW: Rental Requests Tile
                 context,
                 'Rental Requests',
                 Icons.hourglass_top,
                 Colors.orange,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminRentalRequestsScreen())),
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminRentalRequestsScreen(),
+                  ),
+                ),
               ),
               _buildAdminTile(
                 context,
                 'Manage Orders',
                 Icons.shopping_bag_outlined,
                 Colors.blueAccent,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminOrdersScreen())),
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminOrdersScreen()),
+                ),
               ),
               _buildAdminTile(
                 context,
                 'Subscription Verifications',
                 Icons.verified_outlined,
                 Colors.teal,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminSubscriptionVerificationsScreen())),
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const AdminSubscriptionVerificationsScreen(),
+                  ),
+                ),
               ),
               _buildAdminTile(
                 context,
@@ -89,36 +124,57 @@ class AdminDashboardScreen extends ConsumerWidget {
                 Icons.system_update_alt,
                 Colors.purple,
                 () async {
-                   try {
-                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Starting migration...')));
-                     await ref.read(firestoreServiceProvider).migrateLegacyItems();
-                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Migration Complete! Items restored.')));
-                   } catch (e) {
-                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                   }
+                  final messenger = ScaffoldMessenger.of(context);
+                  try {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Starting migration...')),
+                    );
+                    await ref
+                        .read(firestoreServiceProvider)
+                        .migrateLegacyItems();
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Migration Complete! Items restored.'),
+                      ),
+                    );
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
                 },
               ),
             ],
           ),
         );
       },
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (err, stack) => Scaffold(body: Center(child: Text('Error: $err'))),
     );
   }
 
-  Widget _buildAdminTile(BuildContext context, String title, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildAdminTile(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return Card(
       elevation: 4,
       margin: const EdgeInsets.only(bottom: 16),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: color.withOpacity(0.1),
+          backgroundColor: color.withValues(alpha: 0.1),
           child: Icon(icon, color: color),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 12,
+        ),
         onTap: onTap,
       ),
     );

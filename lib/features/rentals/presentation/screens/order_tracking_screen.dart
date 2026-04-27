@@ -47,8 +47,9 @@ class OrderTrackingScreen extends ConsumerWidget {
 
           final results = snapshot.data as List<dynamic>;
           // Safety check for list length
-          if (results.isEmpty)
+          if (results.isEmpty) {
             return const Center(child: Text('No order data.'));
+          }
 
           // Safely cast items, defaulting to empty list if null/wrong type
           final items = (results[0] is List)
@@ -153,12 +154,13 @@ class OrderTrackingScreen extends ConsumerWidget {
     if (orderStatus == 'confirmed') {
       currentStep = 1;
     } else if (deliveryStatus == 'picked' ||
-        deliveryStatus == 'out_for_delivery')
+        deliveryStatus == 'out_for_delivery') {
       currentStep = 2;
-    else if (['active', 'delivered', 'in use'].contains(orderStatus))
+    } else if (['active', 'delivered', 'in use'].contains(orderStatus)) {
       currentStep = 3;
-    else if (['completed', 'returned'].contains(orderStatus))
+    } else if (['completed', 'returned'].contains(orderStatus)) {
       currentStep = 4;
+    }
 
     // Timeline Steps
     final steps = [

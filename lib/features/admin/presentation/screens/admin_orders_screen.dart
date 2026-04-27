@@ -147,7 +147,7 @@ class _AdminOrderCard extends ConsumerWidget {
               .update({'status': 'unavailable'});
         }
       } catch (e) {
-        print('Error locking products: $e');
+        debugPrint('Error locking products: $e');
       }
     }
 
@@ -168,7 +168,7 @@ class _AdminOrderCard extends ConsumerWidget {
               .update({'status': 'approved'});
         }
       } catch (e) {
-        print('Error unlocking products: $e');
+        debugPrint('Error unlocking products: $e');
       }
     }
   }
@@ -179,6 +179,7 @@ class _AdminOrderCard extends ConsumerWidget {
         .doc(order.id)
         .set({'deliveryStatus': 'delivered'}, SetOptions(merge: true));
 
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Delivery marked as Delivered')),
     );
@@ -195,6 +196,7 @@ class _AdminOrderCard extends ConsumerWidget {
           'returnedAt': Timestamp.now(),
         }, SetOptions(merge: true));
 
+    if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Marked as Returned')));

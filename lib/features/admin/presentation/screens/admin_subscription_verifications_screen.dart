@@ -10,10 +10,10 @@ const _maroon = Color(0xFF781C2E);
 // ─── Provider ────────────────────────────────────────────────────────────────
 final subscriptionVerificationsProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-  return ref
-      .read(firestoreServiceProvider)
-      .streamSubscriptionVerifications();
-});
+      return ref
+          .read(firestoreServiceProvider)
+          .streamSubscriptionVerifications();
+    });
 
 class AdminSubscriptionVerificationsScreen extends ConsumerWidget {
   const AdminSubscriptionVerificationsScreen({super.key});
@@ -27,8 +27,10 @@ class AdminSubscriptionVerificationsScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.blueGrey.shade900,
         foregroundColor: Colors.white,
-        title: const Text('Subscription Verifications',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Subscription Verifications',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
       ),
       body: verificationsAsync.when(
@@ -38,15 +40,19 @@ class AdminSubscriptionVerificationsScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.verified_outlined,
-                      size: 72, color: Colors.grey.shade300),
+                  Icon(
+                    Icons.verified_outlined,
+                    size: 72,
+                    color: Colors.grey.shade300,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'No pending verifications',
                     style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey.shade500,
-                        fontWeight: FontWeight.w600),
+                      fontSize: 18,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -54,7 +60,8 @@ class AdminSubscriptionVerificationsScreen extends ConsumerWidget {
           }
 
           // Sort: pending first
-          final sorted = [...verifications]..sort((a, b) {
+          final sorted = [...verifications]
+            ..sort((a, b) {
               final statusA = a['status'] ?? 'pending';
               final statusB = b['status'] ?? 'pending';
               if (statusA == 'pending' && statusB != 'pending') return -1;
@@ -130,20 +137,18 @@ class _VerificationCard extends StatelessWidget {
         children: [
           // ── Header ────────────────────────────────────────────
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: _isPending
-                  ? Colors.orange.shade50
-                  : Colors.grey.shade50,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+              color: _isPending ? Colors.orange.shade50 : Colors.grey.shade50,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
             ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: _maroon.withOpacity(0.12),
+                  backgroundColor: _maroon.withValues(alpha: 0.12),
                   child: const Icon(Icons.person, color: _maroon, size: 22),
                 ),
                 const SizedBox(width: 12),
@@ -154,25 +159,32 @@ class _VerificationCard extends StatelessWidget {
                       Text(
                         data['name'] ?? '—',
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: Colors.black87),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Colors.black87,
+                        ),
                       ),
                       Text(
                         data['userEmail'] ?? '—',
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600),
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
-                    color: _statusColor.withOpacity(0.12),
+                    color: _statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _statusColor.withOpacity(0.3)),
+                    border: Border.all(
+                      color: _statusColor.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -182,9 +194,10 @@ class _VerificationCard extends StatelessWidget {
                       Text(
                         _status.toUpperCase(),
                         style: TextStyle(
-                            color: _statusColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold),
+                          color: _statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -202,12 +215,17 @@ class _VerificationCard extends StatelessWidget {
                 // Plan & Amount
                 Row(
                   children: [
-                    _chip(Icons.workspace_premium,
-                        '${data['tierName'] ?? '—'} · ${data['billingCycle'] ?? ''}',
-                        _maroon),
+                    _chip(
+                      Icons.workspace_premium,
+                      '${data['tierName'] ?? '—'} · ${data['billingCycle'] ?? ''}',
+                      _maroon,
+                    ),
                     const SizedBox(width: 8),
-                    _chip(Icons.currency_rupee,
-                        '${data['amount'] ?? '—'}', Colors.green.shade700),
+                    _chip(
+                      Icons.currency_rupee,
+                      '${data['amount'] ?? '—'}',
+                      Colors.green.shade700,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -215,7 +233,9 @@ class _VerificationCard extends StatelessWidget {
                 // UTR ID
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(10),
@@ -223,27 +243,35 @@ class _VerificationCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.receipt_long,
-                          size: 16, color: Colors.blue),
+                      const Icon(
+                        Icons.receipt_long,
+                        size: 16,
+                        color: Colors.blue,
+                      ),
                       const SizedBox(width: 8),
-                      const Text('UTR / Transaction ID: ',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87)),
+                      const Text(
+                        'UTR / Transaction ID: ',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
                       Expanded(
                         child: Text(
                           data['utrId'] ?? '—',
                           style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w600),
+                            fontSize: 12,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       GestureDetector(
                         onTap: () {
                           Clipboard.setData(
-                              ClipboardData(text: data['utrId'] ?? ''));
+                            ClipboardData(text: data['utrId'] ?? ''),
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('UTR copied!'),
@@ -253,8 +281,11 @@ class _VerificationCard extends StatelessWidget {
                             ),
                           );
                         },
-                        child: const Icon(Icons.copy,
-                            size: 14, color: Colors.blue),
+                        child: const Icon(
+                          Icons.copy,
+                          size: 14,
+                          color: Colors.blue,
+                        ),
                       ),
                     ],
                   ),
@@ -264,14 +295,18 @@ class _VerificationCard extends StatelessWidget {
 
                 // Screenshot
                 if (data['screenshotUrl'] != null) ...[
-                  const Text('Payment Screenshot:',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.black87)),
+                  const Text(
+                    'Payment Screenshot:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.black87,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   GestureDetector(
-                    onTap: () => _showFullScreenshot(context, data['screenshotUrl']),
+                    onTap: () =>
+                        _showFullScreenshot(context, data['screenshotUrl']),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: _buildImage(data['screenshotUrl']),
@@ -282,7 +317,9 @@ class _VerificationCard extends StatelessWidget {
                     child: Text(
                       'Tap image to view full screen',
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade500),
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
                     ),
                   ),
                 ] else
@@ -294,11 +331,15 @@ class _VerificationCard extends StatelessWidget {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.image_not_supported_outlined,
-                            color: Colors.grey),
+                        Icon(
+                          Icons.image_not_supported_outlined,
+                          color: Colors.grey,
+                        ),
                         SizedBox(width: 8),
-                        Text('No screenshot uploaded',
-                            style: TextStyle(color: Colors.grey)),
+                        Text(
+                          'No screenshot uploaded',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       ],
                     ),
                   ),
@@ -309,8 +350,7 @@ class _VerificationCard extends StatelessWidget {
                 if (data['submittedAt'] != null)
                   Text(
                     'Submitted: ${_formatDate(data['submittedAt'])}',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                   ),
 
                 // ── Action Buttons (pending only) ──────────────
@@ -320,32 +360,43 @@ class _VerificationCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () =>
-                              _reject(context, data['id'] ?? '', data['userId'] ?? ''),
-                          icon: const Icon(Icons.close,
-                              color: Colors.red, size: 18),
-                          label: const Text('Reject',
-                              style: TextStyle(color: Colors.red)),
+                          onPressed: () => _reject(
+                            context,
+                            data['id'] ?? '',
+                            data['userId'] ?? '',
+                          ),
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Reject',
+                            style: TextStyle(color: Colors.red),
+                          ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.red),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () =>
-                              _approve(context, data),
+                          onPressed: () => _approve(context, data),
                           icon: const Icon(Icons.check, size: 18),
-                          label: const Text('Approve',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: const Text(
+                            'Approve',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -362,23 +413,25 @@ class _VerificationCard extends StatelessWidget {
 
   Widget _chip(IconData icon, String label, Color color) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11,
-                  color: color,
-                  fontWeight: FontWeight.bold)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -465,7 +518,8 @@ class _VerificationCard extends StatelessWidget {
       builder: (_) => AlertDialog(
         title: const Text('Approve Subscription'),
         content: Text(
-            'Approve ${data['name']}\'s ${data['tierName']} plan for ₹${data['amount']}?'),
+          'Approve ${data['name']}\'s ${data['tierName']} plan for ₹${data['amount']}?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -473,10 +527,8 @@ class _VerificationCard extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Approve',
-                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Approve', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -489,7 +541,9 @@ class _VerificationCard extends StatelessWidget {
           : const Duration(days: 30);
       final expiryDate = DateTime.now().add(duration);
 
-      await ref.read(firestoreServiceProvider).approveSubscriptionVerification(
+      await ref
+          .read(firestoreServiceProvider)
+          .approveSubscriptionVerification(
             docId: data['id'],
             userId: data['userId'],
             tierId: data['tierId'],
@@ -509,12 +563,17 @@ class _VerificationCard extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
 
-  Future<void> _reject(BuildContext context, String docId, String userId) async {
+  Future<void> _reject(
+    BuildContext context,
+    String docId,
+    String userId,
+  ) async {
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -528,7 +587,8 @@ class _VerificationCard extends StatelessWidget {
             TextField(
               controller: reasonCtrl,
               decoration: const InputDecoration(
-                  hintText: 'e.g. Invalid UTR, blurry screenshot...'),
+                hintText: 'e.g. Invalid UTR, blurry screenshot...',
+              ),
               maxLines: 2,
             ),
           ],
@@ -541,8 +601,7 @@ class _VerificationCard extends StatelessWidget {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Reject',
-                style: TextStyle(color: Colors.white)),
+            child: const Text('Reject', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -553,9 +612,10 @@ class _VerificationCard extends StatelessWidget {
       await ref
           .read(firestoreServiceProvider)
           .rejectSubscriptionVerification(
-              docId: docId,
-              userId: userId,
-              reason: reasonCtrl.text.trim());
+            docId: docId,
+            userId: userId,
+            reason: reasonCtrl.text.trim(),
+          );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -569,7 +629,8 @@ class _VerificationCard extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }

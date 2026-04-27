@@ -16,6 +16,7 @@ import '../../../../core/providers/storage_provider.dart';
 // KYC imports
 import '../../../kyc/helpers/kyc_enforcement.dart';
 import '../../../profile/presentation/screens/kyc_screen.dart';
+import '../../../profile/presentation/screens/settings_screen.dart';
 import '../../../../core/providers/navigation_provider.dart';
 
 // ... other imports
@@ -86,7 +87,6 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
   }
 
   Future<void> _submitListing() async {
-    // Check if user is logged in
     final currentUser = ref.read(currentUserProvider);
 
     if (currentUser == null) {
@@ -104,7 +104,6 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                // Navigate to auth screen
               },
               child: const Text('Login'),
             ),
@@ -114,87 +113,14 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       return;
     }
 
-    // KYC ENFORCEMENT: Check if user can list items
     final userAsync = ref.read(userModelProvider);
     debugPrint(
       '🔍 AddListing: UserAsync state: ${userAsync.when(data: (user) => user != null ? 'User loaded' : 'User is null', loading: () => 'Loading...', error: (e, _) => 'Error: $e')}',
     );
 
-    return userAsync.when(
+    userAsync.when(
       data: (userModel) async {
-        if (userModel != null) {
-          debugPrint('🔍 AddListing: User KYC Status: ${userModel.kycStatus}');
-          debugPrint(
-            '🔍 AddListing: Can List Items: ${userModel.canListItems}',
-          );
-
-          // RELIABILITY FIX: Fetch fresh user data if local state says not approved
-          // This prevents "Under Review" dialog if the user was just approved but stream is slightly behind
-          UserModel effectiveUser = userModel;
-          final firestoreService = ref.read(firestoreServiceProvider);
-
-          if (!effectiveUser.canListItems) {
-            try {
-              final freshUser = await firestoreService.getUserModel(
-                userModel.uid,
-              );
-              if (freshUser != null) {
-                effectiveUser = freshUser;
-                debugPrint(
-                  '✅ AddListing: Fetched fresh user data. Status: ${effectiveUser.kycStatus}',
-                );
-              }
-            } catch (e) {
-              debugPrint('⚠️ AddListing: Failed to fetch fresh user data: $e');
-            }
-          }
-
-          // KYC ENFORCEMENT & SELF-HEALING
-          bool isApproved = effectiveUser.canListItems;
-
-          // If still not approved, double-check the detailed KYC doc (Self-Healing)
-          if (!isApproved) {
-            try {
-              final kycDoc = await firestoreService
-                  .getKycStatus(effectiveUser.uid)
-                  .first;
-
-              if (kycDoc != null &&
-                  (kycDoc.status == 'approved' ||
-                      kycDoc.status == 'verified')) {
-                debugPrint(
-                  '✅ AddListing: Self-Healing triggered! User was pending, but KYC doc is approved.',
-                );
-                await firestoreService.syncUserKycStatus(
-                  effectiveUser.uid,
-                  'approved',
-                );
-                // Create a temporary trusted user/approved state
-                isApproved = true;
-                // We don't overwrite effectiveUser here to avoid immutability complexity, but we set the flag
-              }
-            } catch (e) {
-              debugPrint('⚠️ AddListing: Self-Healing check failed: $e');
-            }
-          }
-
-          if (!isApproved) {
-            final canList = await KycEnforcement.canUserListItems(
-              context: context,
-              user: effectiveUser,
-              onStartKyc: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const KycScreen()),
-                );
-              },
-            );
-            if (!canList) return;
-          }
-
-          // Proceed with the effective user
-          _proceedWithListing(effectiveUser);
-        } else {
+        if (userModel == null) {
           debugPrint(
             '⚠️ WARNING: UserModel is null - user profile not created',
           );
@@ -205,7 +131,85 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
               duration: Duration(seconds: 3),
             ),
           );
+          return;
         }
+
+        debugPrint('🔍 AddListing: User KYC Status: ${userModel.kycStatus}');
+        debugPrint('🔍 AddListing: Can List Items: ${userModel.canListItems}');
+
+        UserModel effectiveUser = userModel;
+        final firestoreService = ref.read(firestoreServiceProvider);
+
+        if (!effectiveUser.canListItems) {
+          try {
+            final freshUser = await firestoreService.getUserModel(
+              userModel.uid,
+            );
+            if (freshUser != null) {
+              effectiveUser = freshUser;
+              debugPrint(
+                '✅ AddListing: Fetched fresh user data. Status: ${effectiveUser.kycStatus}',
+              );
+            }
+          } catch (e) {
+            debugPrint('⚠️ AddListing: Failed to fetch fresh user data: $e');
+          }
+        }
+
+        if (!mounted) return;
+        final hasPhone = await KycEnforcement.ensurePhoneNumber(
+          context: context,
+          user: effectiveUser,
+          actionDescription: 'create a listing',
+          onAddPhone: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            );
+          },
+        );
+        if (!hasPhone) return;
+
+        bool isApproved = effectiveUser.canListItems;
+
+        if (!isApproved) {
+          try {
+            final kycDoc = await firestoreService
+                .getKycStatus(effectiveUser.uid)
+                .first;
+
+            if (kycDoc != null &&
+                (kycDoc.status == 'approved' || kycDoc.status == 'verified')) {
+              debugPrint(
+                '✅ AddListing: Self-Healing triggered! User was pending, but KYC doc is approved.',
+              );
+              await firestoreService.syncUserKycStatus(
+                effectiveUser.uid,
+                'approved',
+              );
+              isApproved = true;
+            }
+          } catch (e) {
+            debugPrint('⚠️ AddListing: Self-Healing check failed: $e');
+          }
+        }
+
+        if (!isApproved) {
+          if (!mounted) return;
+          final canList = await KycEnforcement.canUserListItems(
+            context: context,
+            user: effectiveUser,
+            onStartKyc: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const KycScreen()),
+              );
+            },
+          );
+          if (!canList) return;
+        }
+
+        _proceedWithListing(effectiveUser);
       },
       loading: () {
         debugPrint('🔄 AddListing: User profile is loading...');
@@ -234,15 +238,21 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
-    // Check Subscription Limit
-    if (!userModel.hasUnlimitedListings && userModel.itemsListed >= 5) {
+    final firestoreService = ref.read(firestoreServiceProvider);
+    final monthlyLendCount = await firestoreService.getCurrentMonthLendingCount(
+      currentUser.uid,
+    );
+    final monthlyLendLimit = userModel.monthlyLendLimit;
+
+    // Check monthly lending limit by subscription tier
+    if (monthlyLendCount >= monthlyLendLimit) {
       if (!mounted) return;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Limit Reached'),
-          content: const Text(
-            'You have reached the free limit of 5 listings. Upgrade to Lender Pro or Pro Max for unlimited listings!',
+          content: Text(
+            'You have already used $monthlyLendCount out of $monthlyLendLimit listings this month. Upgrade your plan to increase your monthly lending limit.',
           ),
           actions: [
             TextButton(
@@ -270,6 +280,7 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       return;
     }
 
+    if (!mounted) return;
     if (!_formKey.currentState!.validate()) return;
 
     // ✅ Step 1: Add Title Validation
@@ -436,7 +447,6 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
       debugPrint(
         '💾 Saving product with ${imageUrls.length} images to Firestore...',
       );
-      final firestoreService = ref.read(firestoreServiceProvider);
       await firestoreService.addProduct(product);
       debugPrint('✅ Product saved successfully!');
       // await firestoreService.incrementItemsListed(currentUser.uid); // Method removed from service
@@ -537,10 +547,10 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
                             colors: [
                               Theme.of(
                                 context,
-                              ).colorScheme.primary.withOpacity(0.1),
+                              ).colorScheme.primary.withValues(alpha: 0.1),
                               Theme.of(
                                 context,
-                              ).colorScheme.secondary.withOpacity(0.1),
+                              ).colorScheme.secondary.withValues(alpha: 0.1),
                             ],
                           ),
                         ),
@@ -768,81 +778,81 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
 
                     // Rental Price & Security Deposit
                     Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _priceController,
-                              decoration: InputDecoration(
-                                labelText: 'Rental Price',
-                                prefixIcon: const Icon(Icons.currency_rupee),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _priceController,
+                            decoration: InputDecoration(
+                              labelText: 'Rental Price',
+                              prefixIcon: const Icon(Icons.currency_rupee),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Required';
-                                }
-                                return null;
-                              },
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: _selectedPeriod,
-                              decoration: InputDecoration(
-                                labelText: 'Per',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              items: ['Day', 'Week', 'Month']
-                                  .map(
-                                    (period) => DropdownMenuItem(
-                                      value: period,
-                                      child: Text(period),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedPeriod = value!;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ).animate().fadeIn(delay: 700.ms).slideX(begin: -0.2),
-                      const SizedBox(height: 16),
-
-                      TextFormField(
-                        controller: _depositController,
-                        decoration: InputDecoration(
-                          labelText: 'Security Deposit',
-                          hintText: 'Optional',
-                          prefixIcon: const Icon(Icons.security),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Required';
+                              }
+                              return null;
+                            },
                           ),
                         ),
-                        keyboardType: TextInputType.number,
-                      ).animate().fadeIn(delay: 800.ms).slideX(begin: -0.2),
-                      const SizedBox(height: 16),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedPeriod,
+                            decoration: InputDecoration(
+                              labelText: 'Per',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: ['Day', 'Week', 'Month']
+                                .map(
+                                  (period) => DropdownMenuItem(
+                                    value: period,
+                                    child: Text(period),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedPeriod = value!;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ).animate().fadeIn(delay: 700.ms).slideX(begin: -0.2),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _depositController,
+                      decoration: InputDecoration(
+                        labelText: 'Security Deposit',
+                        hintText: 'Optional',
+                        prefixIcon: const Icon(Icons.security),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ).animate().fadeIn(delay: 800.ms).slideX(begin: -0.2),
+                    const SizedBox(height: 16),
 
                     // Sale Price Field
                     TextFormField(
                       controller: _salePriceController,
-                        decoration: InputDecoration(
-                          labelText: 'Sale Price',
-                          prefixIcon: const Icon(Icons.monetization_on),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                      decoration: InputDecoration(
+                        labelText: 'Sale Price',
+                        prefixIcon: const Icon(Icons.monetization_on),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        keyboardType: TextInputType.number,
+                      ),
+                      keyboardType: TextInputType.number,
                     ).animate().fadeIn(delay: 750.ms).slideX(begin: -0.2),
                     const SizedBox(height: 16),
                     const SizedBox(height: 32),

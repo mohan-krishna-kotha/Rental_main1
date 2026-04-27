@@ -24,11 +24,14 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
   String _selectedCategory = 'general';
   String _selectedPriority = 'normal';
   bool _submitting = false;
+  final _faqSearchController = TextEditingController();
+  String _faqQuery = '';
 
   @override
   void dispose() {
     _subjectController.dispose();
     _messageController.dispose();
+    _faqSearchController.dispose();
     super.dispose();
   }
 
@@ -75,14 +78,45 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
       data: (faqs) {
         final list = faqs.isNotEmpty ? faqs : _defaultFaqs;
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: list.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final faq = list[index];
-            return _FaqTile(faq: faq).animate().fadeIn(delay: (50 * index).ms);
-          },
+        // Apply search filter
+        final filtered = _faqQuery.trim().isEmpty
+            ? list
+            : list.where((f) {
+                final q = _faqQuery.toLowerCase();
+                return f.question.toLowerCase().contains(q) ||
+                    f.answer.toLowerCase().contains(q);
+              }).toList();
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+              child: TextField(
+                controller: _faqSearchController,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search FAQs',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (v) => setState(() => _faqQuery = v),
+              ),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(child: Text('No FAQs match your search.'))
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final faq = filtered[index];
+                        return _FaqTile(
+                          faq: faq,
+                        ).animate().fadeIn(delay: (50 * index).ms);
+                      },
+                    ),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

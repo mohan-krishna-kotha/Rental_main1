@@ -14,6 +14,8 @@ import 'features/rentals/presentation/screens/rentals_screen.dart';
 import 'features/profile/presentation/screens/profile_screen.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/services/notification_service.dart';
+import 'features/rentals/presentation/providers/order_provider.dart';
+import 'core/models/booking_request_model.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'core/providers/locale_provider.dart';
@@ -43,6 +45,58 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
+    final currentUser = ref.watch(currentUserProvider);
+
+    // Save FCM token to Firestore when user signs in and listen for owner booking requests
+    if (currentUser != null) {
+      // Save token once when auth state becomes available
+      ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) async {
+        final user = next.asData?.value;
+        if (user != null) {
+          try {
+            final token = await NotificationService().getFcmToken();
+            if (token != null) {
+              await ref
+                  .read(firestoreServiceProvider)
+                  .saveUserFcmToken(user.uid, token);
+            }
+          } catch (e) {
+            debugPrint('Failed to save FCM token on sign-in: $e');
+          }
+        }
+      });
+
+      ref.listen<
+        AsyncValue<List<BookingRequestModel>>
+      >(ownerBookingRequestsProvider(currentUser.uid), (previous, next) {
+        try {
+          final prevList = previous?.asData?.value ?? [];
+          final nextList = next.asData?.value ?? [];
+
+          // If new requests were added, notify about the first new one
+          if (nextList.length > prevList.length) {
+            final newOnes = nextList.where(
+              (r) => prevList.every((p) => p.id != r.id),
+            );
+            if (newOnes.isNotEmpty) {
+              final r = newOnes.first;
+              NotificationService().showInAppNotification(
+                'New rental request',
+                '${r.renterName ?? 'Someone'} requested ${r.productName ?? 'your item'}',
+              );
+            }
+          } else if (prevList.isEmpty && nextList.isNotEmpty) {
+            final r = nextList.first;
+            NotificationService().showInAppNotification(
+              'New rental request',
+              '${r.renterName ?? 'Someone'} requested ${r.productName ?? 'your item'}',
+            );
+          }
+        } catch (e) {
+          debugPrint('Error while handling booking request notification: $e');
+        }
+      });
+    }
 
     return MaterialApp(
       navigatorKey: NotificationService.navigatorKey,

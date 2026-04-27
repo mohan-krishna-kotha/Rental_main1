@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../home/presentation/screens/item_details_screen.dart';
+import '../../../admin/presentation/screens/admin_rental_requests_screen.dart';
+import '../../../rentals/presentation/providers/order_provider.dart';
 
 class MyListingsScreen extends ConsumerStatefulWidget {
   const MyListingsScreen({super.key});
@@ -16,6 +18,7 @@ class _MyListingsScreenState extends ConsumerState<MyListingsScreen> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final pendingCount = ref.watch(ownerPendingRequestsCountProvider);
 
     if (user == null) {
       return const Scaffold(
@@ -24,7 +27,43 @@ class _MyListingsScreenState extends ConsumerState<MyListingsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Listings')),
+      appBar: AppBar(
+        title: const Text('My Listings'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminRentalRequestsScreen(),
+                ),
+              );
+            },
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.inbox_outlined),
+                if (pendingCount > 0) ...[
+                  Positioned(
+                    right: -1,
+                    top: -1,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            tooltip: 'Rental Requests',
+          ),
+        ],
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('products')

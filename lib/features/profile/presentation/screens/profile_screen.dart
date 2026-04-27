@@ -17,8 +17,6 @@ import 'help_support_screen.dart';
 import 'kyc_screen.dart';
 import 'settings_screen.dart';
 
-import '../../../../core/providers/items_provider.dart';
-
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -46,13 +44,14 @@ class ProfileScreen extends ConsumerWidget {
               displayName: authUser.displayName ?? 'User',
               createdAt: DateTime.now(),
             );
-        
+
         // Derive the authoritative KYC status from the KYC provider
         // If data is null -> 'not_submitted'
         // If data exists, use its status.
         final kycStatus = kycAsync.maybeWhen(
-           data: (kyc) => kyc?.status ?? 'not_submitted',
-           orElse: () => user.kycStatus, // Fallback to user model if loading/error
+          data: (kyc) => kyc?.status ?? 'not_submitted',
+          orElse: () =>
+              user.kycStatus, // Fallback to user model if loading/error
         );
 
         return _buildProfileView(context, ref, user, kycStatus);
@@ -216,7 +215,13 @@ class ProfileScreen extends ConsumerWidget {
                         },
                       ),
                     ),
-                    _buildHeroCard(context, currentUser, membershipLabel, l10n, kycStatus),
+                    _buildHeroCard(
+                      context,
+                      currentUser,
+                      membershipLabel,
+                      l10n,
+                      kycStatus,
+                    ),
                     const SizedBox(height: 20),
                     if (currentUser.role == 'admin') ...[
                       _buildAdminButton(context, l10n),
@@ -260,15 +265,15 @@ class ProfileScreen extends ConsumerWidget {
     String kycStatus,
   ) {
     final theme = Theme.of(context);
-    
+
     // Determine badge content based on kycStatus
     final isVerified = kycStatus == 'approved' || kycStatus == 'verified';
     final isPending = kycStatus == 'pending';
-    
+
     String statusLabel;
     IconData statusIcon;
     Color? statusColor;
-    
+
     if (isVerified) {
       statusLabel = l10n.kycVerified;
       statusIcon = Icons.verified;
@@ -278,11 +283,14 @@ class ProfileScreen extends ConsumerWidget {
       statusIcon = Icons.hourglass_bottom;
       statusColor = Colors.orange;
     } else {
-       // 'not_submitted' or rejected or other
-       statusLabel = 'Start KYC'; // Or localized string if available
-       statusIcon = Icons.badge_outlined;
-       statusColor = Colors.grey;
+      // 'not_submitted' or rejected or other
+      statusLabel = 'Start KYC'; // Or localized string if available
+      statusIcon = Icons.badge_outlined;
+      statusColor = Colors.grey;
     }
+
+    final monthlyLimitsLabel =
+        'Limits R${user.monthlyRentLimit} • L${user.monthlyLendLimit}/mo';
 
     return Container(
       width: double.infinity,
@@ -358,6 +366,10 @@ class ProfileScreen extends ConsumerWidget {
                 label: l10n.memberSince(user.createdAt.year),
                 icon: Icons.calendar_today_outlined,
               ),
+              _ProfileBadge(
+                label: monthlyLimitsLabel,
+                icon: Icons.speed_outlined,
+              ),
             ],
           ),
         ],
@@ -365,65 +377,76 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildKycCard(BuildContext context, String kycStatus, AppLocalizations l10n) {
+  Widget _buildKycCard(
+    BuildContext context,
+    String kycStatus,
+    AppLocalizations l10n,
+  ) {
     final isVerified = kycStatus == 'approved' || kycStatus == 'verified';
     final isPending = kycStatus == 'pending';
     final isRejected = kycStatus == 'rejected';
-    
+
     // Default color for Verified
     Color color = Colors.green;
     String title = l10n.identityVerified;
     String subtitle = l10n.fullAccess;
     IconData icon = Icons.verified;
-    
+
     if (isVerified) {
-       color = Colors.green;
-       title = l10n.identityVerified;
-       subtitle = l10n.fullAccess;
-       icon = Icons.verified;
+      color = Colors.green;
+      title = l10n.identityVerified;
+      subtitle = l10n.fullAccess;
+      icon = Icons.verified;
     } else if (isPending) {
-       color = Colors.orange;
-       title = l10n.kycPendingStatus;
-       subtitle = 'Your documents are under review.'; 
-       icon = Icons.hourglass_top;
+      color = Colors.orange;
+      title = l10n.kycPendingStatus;
+      subtitle = 'Your documents are under review.';
+      icon = Icons.hourglass_top;
     } else if (isRejected) {
-       color = Colors.red;
-       title = 'KYC Rejected';
-       subtitle = 'Please resubmit valid documents.';
-       icon = Icons.error_outline;
+      color = Colors.red;
+      title = 'KYC Rejected';
+      subtitle = 'Please resubmit valid documents.';
+      icon = Icons.error_outline;
     } else {
-       // not_submitted
-       color = const Color(0xFF781C2E);
-       title = l10n.verifyIdentity;
-       subtitle = l10n.completeKyc;
-       icon = Icons.badge_outlined;
+      // not_submitted
+      color = const Color(0xFF781C2E);
+      title = l10n.verifyIdentity;
+      subtitle = l10n.completeKyc;
+      icon = Icons.badge_outlined;
     }
 
     // Determine the button or status indicator
     Widget actionWidget;
     if (isVerified) {
-       actionWidget = const Icon(Icons.check_circle, color: Colors.green);
+      actionWidget = const Icon(Icons.check_circle, color: Colors.green);
     } else if (isPending) {
-       actionWidget = Container(
-         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-         decoration: BoxDecoration(
-           color: Colors.orange.withOpacity(0.1),
-           borderRadius: BorderRadius.circular(12),
-           border: Border.all(color: Colors.orange),
-         ),
-         child: const Text('Processing', style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
-       );
+      actionWidget = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange),
+        ),
+        child: const Text(
+          'Processing',
+          style: TextStyle(
+            color: Colors.orange,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
     } else {
-       // Rejected or Not Submitted -> Show Start/Retry button
-       actionWidget = ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const KycScreen()),
-            );
-          },
-          child: Text(isRejected ? 'Retry' : l10n.start),
-       );
+      // Rejected or Not Submitted -> Show Start/Retry button
+      actionWidget = ElevatedButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const KycScreen()),
+          );
+        },
+        child: Text(isRejected ? 'Retry' : l10n.start),
+      );
     }
 
     return Container(
@@ -437,20 +460,14 @@ class ProfileScreen extends ConsumerWidget {
         children: [
           CircleAvatar(
             backgroundColor: color.withOpacity(0.15),
-            child: Icon(
-              icon,
-              color: color,
-            ),
+            child: Icon(icon, color: color),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
@@ -477,7 +494,10 @@ class ProfileScreen extends ConsumerWidget {
         leading: const Icon(Icons.admin_panel_settings, color: Colors.white),
         title: Text(
           l10n.adminDashboard,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         subtitle: Text(
           l10n.adminSubtitle,

@@ -7,10 +7,12 @@ import '../../../core/models/product_model.dart';
 import '../../../core/models/order_models.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/utils/booking_policy.dart';
 import '../../kyc/helpers/kyc_enforcement.dart';
 import 'payment_screen.dart';
 import '../../../core/providers/items_provider.dart'; // For firestoreServiceProvider
 import '../../profile/presentation/screens/kyc_screen.dart';
+import '../../profile/presentation/screens/settings_screen.dart';
 
 class BookingScreen extends ConsumerStatefulWidget {
   final ProductModel item;
@@ -45,14 +47,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   }
 
   bool _isDateBooked(DateTime day) {
-    for (var range in _bookedRanges) {
-      // Check if day falls within range (inclusive)
-      if (day.isAfter(range.start.subtract(const Duration(days: 1))) &&
-          day.isBefore(range.end.add(const Duration(days: 1)))) {
-        return true;
-      }
-    }
-    return false;
+    return BookingPolicy.isDateBooked(day, _bookedRanges);
   }
 
   Future<void> _selectDates() async {
@@ -68,14 +63,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       // Double check range validity (in case user selected across a blocked range which picker might allow depending on impl)
       // Standard Flutter DateRangePicker usually prevents internal blocks if properly set,
       // but let's verify no blocked date is INSIDE the range.
-      bool hasOverlap = false;
-      for (var range in _bookedRanges) {
-        if (picked.start.isBefore(range.end) &&
-            picked.end.isAfter(range.start)) {
-          hasOverlap = true;
-          break;
-        }
-      }
+      final hasOverlap = BookingPolicy.hasDateRangeOverlap(
+        picked,
+        _bookedRanges,
+      );
 
       if (hasOverlap) {
         if (mounted) {
@@ -120,6 +111,19 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     if (userModelState != null) {
       UserModel effectiveUser = userModelState;
       final firestoreService = ref.read(firestoreServiceProvider);
+
+      final hasPhone = await KycEnforcement.ensurePhoneNumber(
+        context: context,
+        user: effectiveUser,
+        actionDescription: 'book items',
+        onAddPhone: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SettingsScreen()),
+          );
+        },
+      );
+      if (!hasPhone) return;
 
       debugPrint(
         '🔍 Booking: User KYC Status (Local): ${effectiveUser.kycStatus}',
@@ -169,6 +173,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       }
 
       if (!isApproved) {
+        if (!mounted) return;
         final canBook = await KycEnforcement.canUserBookItems(
           context: context,
           user: effectiveUser,

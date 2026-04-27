@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,10 +10,10 @@ import '../../../../core/providers/items_provider.dart';
 // ─────────────────────────────────────────────────────────────
 final paymentMethodsProvider =
     StreamProvider.autoDispose<List<PaymentMethodModel>>((ref) {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return Stream.value([]);
-  return ref.read(firestoreServiceProvider).streamPaymentMethods(uid);
-});
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return Stream.value([]);
+      return ref.read(firestoreServiceProvider).streamPaymentMethods(uid);
+    });
 
 // ─────────────────────────────────────────────────────────────
 // Screen
@@ -54,8 +53,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
   }
 
   // ── Empty State ──────────────────────────────────────────────
-  Widget _buildEmptyState(
-      BuildContext context, WidgetRef ref, String uid) {
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref, String uid) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -80,10 +78,10 @@ class PaymentMethodsScreen extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: _maroon,
               foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ],
@@ -92,8 +90,12 @@ class PaymentMethodsScreen extends ConsumerWidget {
   }
 
   // ── Method List ──────────────────────────────────────────────
-  Widget _buildMethodList(BuildContext context, WidgetRef ref, String uid,
-      List<PaymentMethodModel> methods) {
+  Widget _buildMethodList(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    List<PaymentMethodModel> methods,
+  ) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -101,18 +103,21 @@ class PaymentMethodsScreen extends ConsumerWidget {
         const Text(
           'Saved Methods',
           style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
+          ),
         ),
         const SizedBox(height: 12),
         ...methods.asMap().entries.map((entry) {
           final method = entry.value;
           return _PaymentMethodTile(
-            method: method,
-            onSetDefault: () => ref
-                .read(firestoreServiceProvider)
-                .setDefaultPaymentMethod(uid, method.id),
-            onDelete: () => _confirmDelete(context, ref, uid, method),
-          )
+                method: method,
+                onSetDefault: () => ref
+                    .read(firestoreServiceProvider)
+                    .setDefaultPaymentMethod(uid, method.id),
+                onDelete: () => _confirmDelete(context, ref, uid, method),
+              )
               .animate(delay: Duration(milliseconds: entry.key * 60))
               .fadeIn()
               .slideX(begin: -0.05);
@@ -124,13 +129,16 @@ class PaymentMethodsScreen extends ConsumerWidget {
         OutlinedButton.icon(
           onPressed: () => _showAddMethodSheet(context, ref, uid),
           icon: const Icon(Icons.add, color: _maroon),
-          label:
-              const Text('Add Another Method', style: TextStyle(color: _maroon)),
+          label: const Text(
+            'Add Another Method',
+            style: TextStyle(color: _maroon),
+          ),
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: _maroon),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
 
@@ -159,19 +167,23 @@ class PaymentMethodsScreen extends ConsumerWidget {
   }
 
   // ── Dialogs ──────────────────────────────────────────────────
-  void _showAddMethodSheet(
-      BuildContext context, WidgetRef ref, String uid) {
+  void _showAddMethodSheet(BuildContext context, WidgetRef ref, String uid) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => _AddPaymentMethodSheet(userId: uid, ref: ref),
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, String uid,
-      PaymentMethodModel method) {
+  void _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    PaymentMethodModel method,
+  ) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -179,8 +191,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
         content: Text('Remove "${method.displayTitle}"?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
@@ -239,8 +252,11 @@ class _PaymentMethodTile extends StatelessWidget {
                 color: _iconColor(method.type).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(_iconData(method.type),
-                  color: _iconColor(method.type), size: 22),
+              child: Icon(
+                _iconData(method.type),
+                color: _iconColor(method.type),
+                size: 22,
+              ),
             ),
             const SizedBox(width: 14),
 
@@ -254,22 +270,29 @@ class _PaymentMethodTile extends StatelessWidget {
                       Text(
                         method.displayTitle,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                       if (method.isDefault) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: _maroon,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text('DEFAULT',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'DEFAULT',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ],
@@ -293,19 +316,25 @@ class _PaymentMethodTile extends StatelessWidget {
               itemBuilder: (_) => [
                 if (!method.isDefault)
                   const PopupMenuItem(
-                      value: 'default',
-                      child: Row(children: [
+                    value: 'default',
+                    child: Row(
+                      children: [
                         Icon(Icons.star_outline, size: 18),
                         SizedBox(width: 8),
                         Text('Set as Default'),
-                      ])),
+                      ],
+                    ),
+                  ),
                 const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(children: [
+                  value: 'delete',
+                  child: Row(
+                    children: [
                       Icon(Icons.delete_outline, size: 18, color: Colors.red),
                       SizedBox(width: 8),
                       Text('Remove', style: TextStyle(color: Colors.red)),
-                    ])),
+                    ],
+                  ),
+                ),
               ],
             ),
           ],
@@ -361,14 +390,26 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
   final _upiCtrl = TextEditingController();
   String _selectedUpiApp = 'Google Pay';
   final List<String> _upiApps = [
-    'Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'Cred', 'Other'
+    'Google Pay',
+    'PhonePe',
+    'Paytm',
+    'BHIM',
+    'Cred',
+    'Other',
   ];
 
   // Netbanking fields
   String? _selectedBank;
   final List<String> _banks = [
-    'SBI', 'HDFC Bank', 'ICICI Bank', 'Axis Bank',
-    'Kotak Bank', 'PNB', 'Bank of Baroda', 'Canara Bank', 'Other'
+    'SBI',
+    'HDFC Bank',
+    'ICICI Bank',
+    'Axis Bank',
+    'Kotak Bank',
+    'PNB',
+    'Bank of Baroda',
+    'Canara Bank',
+    'Other',
   ];
 
   @override
@@ -397,9 +438,13 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
       final method = PaymentMethodModel(
         userId: widget.userId,
         type: _selectedType,
-        upiId: _selectedType == PaymentMethodType.upi ? _upiCtrl.text.trim() : null,
+        upiId: _selectedType == PaymentMethodType.upi
+            ? _upiCtrl.text.trim()
+            : null,
         upiApp: _selectedType == PaymentMethodType.upi ? _selectedUpiApp : null,
-        bankName: _selectedType == PaymentMethodType.netbanking ? _selectedBank : null,
+        bankName: _selectedType == PaymentMethodType.netbanking
+            ? _selectedBank
+            : null,
         isDefault: _setAsDefault,
       );
 
@@ -422,7 +467,8 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
 
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent));
+      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+    );
   }
 
   @override
@@ -463,46 +509,52 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
 
               // Type selector tabs
               Row(
-                children: [PaymentMethodType.upi, PaymentMethodType.netbanking].map((type) {
-                  final isSelected = _selectedType == type;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedType = type),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? _maroon.withOpacity(0.1)
-                              : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected ? _maroon : Colors.transparent,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(_typeIcon(type),
-                                color: isSelected ? _maroon : Colors.grey,
-                                size: 22),
-                            const SizedBox(height: 6),
-                            Text(
-                              _typeLabel(type),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isSelected ? _maroon : Colors.grey,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                children: [PaymentMethodType.upi, PaymentMethodType.netbanking]
+                    .map((type) {
+                      final isSelected = _selectedType == type;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedType = type),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? _maroon.withOpacity(0.1)
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? _maroon
+                                    : Colors.transparent,
                               ),
                             ),
-                          ],
+                            child: Column(
+                              children: [
+                                Icon(
+                                  _typeIcon(type),
+                                  color: isSelected ? _maroon : Colors.grey,
+                                  size: 22,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _typeLabel(type),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isSelected ? _maroon : Colors.grey,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+                      );
+                    })
+                    .toList(),
               ),
 
               const SizedBox(height: 20),
@@ -521,7 +573,7 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
                   Switch(
                     value: _setAsDefault,
                     onChanged: (v) => setState(() => _setAsDefault = v),
-                    activeColor: _maroon,
+                    activeThumbColor: _maroon,
                   ),
                   const SizedBox(width: 8),
                   const Text(
@@ -543,17 +595,25 @@ class _AddPaymentMethodSheetState extends State<_AddPaymentMethodSheet> {
                     backgroundColor: _maroon,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: _isSaving
                       ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : const Text('Save Payment Method',
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Save Payment Method',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 15)),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -632,11 +692,15 @@ class _UpiForm extends StatelessWidget {
       children: [
         _label('UPI App'),
         DropdownButtonFormField<String>(
-          value: selectedApp,
-          items: apps.map((a) => DropdownMenuItem(
-            value: a,
-            child: Text(a, style: const TextStyle(color: Colors.black87)),
-          )).toList(),
+          initialValue: selectedApp,
+          items: apps
+              .map(
+                (a) => DropdownMenuItem(
+                  value: a,
+                  child: Text(a, style: const TextStyle(color: Colors.black87)),
+                ),
+              )
+              .toList(),
           onChanged: onAppChanged,
           decoration: _deco('Choose your UPI app', Icons.phone_android),
           style: const TextStyle(color: Colors.black87, fontSize: 14),
@@ -692,19 +756,15 @@ class _NetbankingForm extends StatelessWidget {
       children: [
         _label('Select Bank'),
         DropdownButtonFormField<String>(
-          value: selectedBank,
-          items:
-              banks
-                  .map(
-                    (b) => DropdownMenuItem(
-                      value: b,
-                      child: Text(
-                        b,
-                        style: const TextStyle(color: Colors.black87),
-                      ),
-                    ),
-                  )
-                  .toList(),
+          initialValue: selectedBank,
+          items: banks
+              .map(
+                (b) => DropdownMenuItem(
+                  value: b,
+                  child: Text(b, style: const TextStyle(color: Colors.black87)),
+                ),
+              )
+              .toList(),
           onChanged: onBankChanged,
           decoration: _deco('Choose your bank', Icons.account_balance),
         ),
@@ -733,21 +793,24 @@ class _UpiAppPill extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 4,
-              offset: const Offset(0, 2))
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
         children: [
           Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 6),
-          Text(name,
-              style:
-                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(
+            name,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
@@ -758,30 +821,35 @@ class _UpiAppPill extends StatelessWidget {
 // Shared helpers
 // ─────────────────────────────────────────────────────────────
 Widget _label(String text) => Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text,
-          style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
-    );
+  padding: const EdgeInsets.only(bottom: 6),
+  child: Text(
+    text,
+    style: const TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: Colors.black87,
+    ),
+  ),
+);
 
 InputDecoration _deco(String hint, IconData? icon) => InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-      prefixIcon:
-          icon != null ? Icon(icon, size: 18, color: Colors.grey) : null,
-      border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300)),
-      enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade200)),
-      focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFF781C2E), width: 1.5)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      isDense: true,
-      filled: true,
-      fillColor: Colors.white,
-    );
-
-
+  hintText: hint,
+  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+  prefixIcon: icon != null ? Icon(icon, size: 18, color: Colors.grey) : null,
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: BorderSide(color: Colors.grey.shade300),
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: BorderSide(color: Colors.grey.shade200),
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10),
+    borderSide: const BorderSide(color: Color(0xFF781C2E), width: 1.5),
+  ),
+  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+  isDense: true,
+  filled: true,
+  fillColor: Colors.white,
+);

@@ -45,20 +45,66 @@ service cloud.firestore {
         || (isLoggedIn() && request.auth.uid == resource.data.ownerId);
 
       match /bookings/{bookingId} {
-        // FIX: Accept either buyerId or renterId matching auth.uid (both are set in createCompleteOrder)
+        // Bookings are written by the signed-in user in the same batch/transaction
+        // as the parent order. The booking must match that order and the order
+        // must belong to the signed-in buyer or listing owner.
         allow create: if isLoggedIn()
-          && (request.resource.data.buyerId == request.auth.uid
-            || request.resource.data.renterId == request.auth.uid);
+          && request.resource.data.orderId is string
+          && request.resource.data.orderId.size() > 0
+          && (
+            getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == request.auth.uid ||
+            getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.ownerId == request.auth.uid
+          )
+          && request.resource.data.buyerId == getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId;
         allow read: if isLoggedIn();
         allow update, delete: if isAdmin();
       }
 
       match /reviews/{reviewId} {
         allow read: if isLoggedIn();
-        allow create: if isLoggedIn()
-          && request.resource.data.authorId == request.auth.uid;
+        // Allow create if the review author is the signed-in user. Support the
+        // current `reviewerId`, newer `authorId`, and legacy `userId` fields.
+        allow create: if isLoggedIn() && (
+          request.resource.data.reviewerId == request.auth.uid ||
+          request.resource.data.authorId == request.auth.uid ||
+          request.resource.data.userId == request.auth.uid
+        );
         allow update, delete: if request.auth != null
-          && request.auth.uid == resource.data.authorId;
+          && (
+            request.auth.uid == resource.data.reviewerId ||
+            request.auth.uid == resource.data.authorId ||
+            request.auth.uid == resource.data.userId
+          );
+      }
+    }
+
+    /* FAQs - public read, admin write */
+    match /faqs/{faqId} {
+      allow read: if true; // Public FAQ list
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Backwards-compatible collection name used by client: `support_faqs`
+    match /support_faqs/{faqId} {
+      allow read: if true; // Public FAQ list
+      allow create, update, delete: if isAdmin();
+    }
+
+    /* Support tickets - users can create and read their own tickets; admins can manage */
+    match /support_tickets/{ticketId} {
+      allow create: if isLoggedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin() || (isLoggedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin() || (isLoggedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin() || (isLoggedIn() && resource.data.userId == request.auth.uid);
+
+      match /messages/{messageId} {
+        // Message subcollection under a ticket: participants (user + admin) can read/create
+        allow read: if isAdmin() || (isLoggedIn() && get(/databases/$(database)/documents/support_tickets/$(ticketId)).data.userId == request.auth.uid);
+        allow create: if isLoggedIn() && (
+          request.auth.uid == request.resource.data.senderId ||
+          isAdmin()
+        );
+        allow update, delete: if isAdmin();
       }
     }
 
@@ -69,7 +115,13 @@ service cloud.firestore {
 
     /* Orders */
     match /orders/{orderId} {
-      allow create: if isLoggedIn();
+      // Orders can be created by the buyer for the normal rental flow or by the
+      // listing owner when approving a booking request on the free tier.
+      allow create: if isLoggedIn()
+        && (
+          request.resource.data.userId == request.auth.uid ||
+          request.resource.data.ownerId == request.auth.uid
+        );
       allow read: if isAdmin()
         || (isLoggedIn() && (
           resource.data.buyerId == request.auth.uid ||
@@ -85,7 +137,11 @@ service cloud.firestore {
 
       match /items/{itemId} {
         allow read: if isAdmin() || isLoggedIn();
-        allow create: if isLoggedIn(); 
+        allow create: if isLoggedIn()
+          && (
+            getAfter(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid ||
+            getAfter(/databases/$(database)/documents/orders/$(orderId)).data.ownerId == request.auth.uid
+          ); 
         allow update, delete: if isAdmin();
       }
 
@@ -99,7 +155,12 @@ service cloud.firestore {
 
       match /rentals/{docId} {
         allow read: if isAdmin() || isLoggedIn();
-        allow write: if isAdmin() || isLoggedIn();
+        allow write: if isAdmin() || (
+          isLoggedIn() && (
+            getAfter(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid ||
+            getAfter(/databases/$(database)/documents/orders/$(orderId)).data.ownerId == request.auth.uid
+          )
+        );
       }
 
       match /transactions/{transactionId} {
@@ -148,7 +209,39 @@ service cloud.firestore {
         && request.resource.data.buyerId == request.auth.uid;
       allow read: if isLoggedIn()
         && (resource.data.buyerId == request.auth.uid || isAdmin());
-      allow update, delete: if isAdmin();
+      // Buyers can cancel their own pending requests. Listing owners can approve/reject.
+      allow update: if isAdmin()
+        || (isLoggedIn()
+          && resource.data.buyerId == request.auth.uid
+          && resource.data.status == 'pending'
+          && request.resource.data.status == 'cancelled')
+        || (isLoggedIn()
+          && resource.data.ownerId == request.auth.uid
+          && resource.data.status == 'pending'
+          && (request.resource.data.status in ['approved', 'rejected']));
+      allow delete: if isAdmin();
+    }
+
+    /* Notifications (top-level) */
+    match /notifications/{notifId} {
+      // Allow any authenticated user to create a notification that they send.
+      allow create: if isLoggedIn() && request.resource.data.senderId == request.auth.uid;
+      // Allow recipient to read their notifications or admins
+      allow read: if isLoggedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Allow recipient or admin to update (e.g., mark seen)
+      allow update: if isLoggedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() || (isLoggedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    /* Contact Unlock Usage Tracking */
+    match /contact_unlocks/{unlockId} {
+      allow create: if isLoggedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin()
+        || (isLoggedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin()
+        || (isLoggedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
     /* Plans */

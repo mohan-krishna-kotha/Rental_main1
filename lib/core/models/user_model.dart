@@ -4,6 +4,7 @@ class UserModel {
   final String uid;
   final String email;
   final String displayName;
+  final String? phoneNumber;
   final String? photoURL;
   final DateTime createdAt;
   final int itemsListed;
@@ -26,6 +27,7 @@ class UserModel {
     required this.uid,
     required this.email,
     required this.displayName,
+    this.phoneNumber,
     this.photoURL,
     required this.createdAt,
     this.itemsListed = 0,
@@ -71,20 +73,42 @@ class UserModel {
     }
   }
 
-  bool get isPremium =>
-      ['renter_plus', 'lender_pro', 'pro_max'].contains(subscriptionTier);
+  bool get isPremium => [
+    'renter_plus',
+    'renter_pro',
+    'lender_pro',
+    'pro_max',
+  ].contains(subscriptionTier);
 
-  bool get hasReducedFees =>
-      ['renter_plus', 'lender_pro', 'pro_max'].contains(subscriptionTier);
+  int get monthlyRentLimit {
+    switch (subscriptionTier) {
+      case 'renter_plus':
+      case 'renter_pro':
+        return 10;
+      case 'pro_max':
+        return 15;
+      default:
+        return 1;
+    }
+  }
 
-  bool get hasUnlimitedListings =>
-      ['lender_pro', 'pro_max'].contains(subscriptionTier);
+  int get monthlyLendLimit {
+    switch (subscriptionTier) {
+      case 'lender_pro':
+        return 10;
+      case 'pro_max':
+        return 15;
+      default:
+        return 1;
+    }
+  }
 
   Map<String, dynamic> toFirestore() {
     return {
       'uid': uid,
       'email': email,
       'displayName': displayName,
+      'phoneNumber': phoneNumber,
       'photoURL': photoURL,
       'createdAt': Timestamp.fromDate(createdAt),
       'itemsListed': itemsListed,
@@ -111,6 +135,7 @@ class UserModel {
       uid: data['uid'] ?? '',
       email: data['email'] ?? '',
       displayName: data['displayName'] ?? 'User',
+      phoneNumber: data['phoneNumber'],
       photoURL: data['photoURL'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       itemsListed: data['itemsListed'] ?? 0,
@@ -131,6 +156,7 @@ class UserModel {
     String? uid,
     String? email,
     String? displayName,
+    String? phoneNumber,
     String? photoURL,
     DateTime? createdAt,
     int? itemsListed,
@@ -148,6 +174,7 @@ class UserModel {
       uid: uid ?? this.uid,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       photoURL: photoURL ?? this.photoURL,
       createdAt: createdAt ?? this.createdAt,
       itemsListed: itemsListed ?? this.itemsListed,
