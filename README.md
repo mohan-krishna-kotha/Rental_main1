@@ -240,11 +240,6 @@ The home screen features a 3D card carousel with perspective transforms, creatin
 
 This project is licensed under the MIT License.
 
-## 👨‍💻 Developer
-
-**Likith**
-- GitHub: [@LIKITH31](https://github.com/LIKITH31)
-- Email: likithpara31@gmail.com
 
 ## 🙏 Acknowledgments
 
